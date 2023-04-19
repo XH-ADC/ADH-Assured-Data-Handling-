@@ -1,0 +1,95 @@
+import hashlib
+import json
+import time
+
+class Blockchain:
+    def __init__(self):
+        self.chain = []
+        self.pending_transactions = []
+        self.mining_reward = 10
+        self.difficulty = 4
+        self.last_reward_time = time.time()
+        self.miners = {}
+        self.miners_total_shares = 0
+
+        self.create_block(nonce=0, previous_hash='0')
+
+    def create_block(self, nonce, previous_hash):
+        block = {
+            'index': len(self.chain) + 1,
+            'timestamp': time.time(),
+            'transactions': self.pending_transactions,
+            'nonce': nonce,
+            'previous_hash': previous_hash
+        }
+        self.pending_transactions = []
+        self.chain.append(block)
+
+        return block
+
+    def get_last_block(self):
+        return self.chain[-1]
+
+    def add_transaction(self, sender, recipient, amount):
+        transaction = {
+            'sender': sender,
+            'recipient': recipient,
+            'amount': amount
+        }
+        self.pending_transactions.append(transaction)
+
+    def hash_block(self, block):
+        block_encoded = json.dumps(block, sort_keys=True).encode()
+        return hashlib.sha256(block_encoded).hexdigest()
+
+    def valid_proof(self, last_block, nonce, previous_hash):
+        guess = f'{last_block}{nonce}{previous_hash}'.encode()
+        guess_hash = hashlib.sha256(guess).hexdigest()
+        return guess_hash[:self.difficulty] == "0" * self.difficulty
+
+    def mine_block(self, miner_address):
+        last_block = self.get_last_block()
+        previous_hash = self.hash_block(last_block)
+
+        nonce = 0
+        while self.valid_proof(last_block, nonce, previous_hash) is False:
+            nonce = random.randint(0, 9999999)
+
+        self.add_transaction(sender="0", recipient=miner_address, amount=self.mining_reward)
+        block = self.create_block(nonce, previous_hash)
+
+        return block
+
+    def get_balance(self, address):
+        balance = 0
+        for block in self.chain:
+            for transaction in block['transactions']:
+                if transaction['sender'] == address:
+                    balance -= transaction['amount']
+                elif transaction['recipient'] == address:
+                    balance += transaction['amount']
+        return balance
+
+    def allocate_mining_reward(self):
+        if time.time() - self.last_reward_time >= 600:
+            for miner_address in self.miners.keys():
+                if self.miners[miner_address]['shares'] > 0:
+                    reward = int(self.mining_reward * (self.miners[miner_address]['shares'] / self.miners_total_shares))
+                    self.add_transaction(sender="0", recipient=miner_address, amount=reward)
+            self.last_reward_time = time.time()
+            self.miners = {}
+            self.miners_total_shares = 0
+
+    def add_miner(self, miner_address):
+        if miner_address not in self.miners:
+            self.miners[miner_address] = {'shares': 0}
+            self.miners_total_shares += 1
+
+    def remove_miner(self, miner_address):
+        if miner_address in self.miners:
+            del self.miners[miner_address]
+            self.miners_total_shares -= 1
+
+    def update_miner_shares(self, miner_address, shares):
+        if miner_address in self.miners:
+            self.miners[miner_address
