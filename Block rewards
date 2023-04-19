@@ -1,0 +1,78 @@
+import hashlib
+import random
+import time
+
+# 定义区块链类
+class Blockchain:
+    def __init__(self):
+        self.chain = []
+        self.pending_transactions = []
+        self.mining_reward = 10
+        self.difficulty = 4
+        self.last_reward_time = time.time()
+
+        # 创世块
+        self.create_block(nonce=0, previous_hash='0')
+
+    # 创建新的区块
+    def create_block(self, nonce, previous_hash):
+        block = {
+            'index': len(self.chain) + 1,
+            'timestamp': datetime.datetime.now(),
+            'transactions': self.pending_transactions,
+            'nonce': nonce,
+            'previous_hash': previous_hash
+        }
+        self.pending_transactions = []
+        self.chain.append(block)
+
+    # 添加新的交易
+    def add_transaction(self, sender, recipient, amount):
+        transaction = {
+            'sender': sender,
+            'recipient': recipient,
+            'amount': amount
+        }
+        self.pending_transactions.append(transaction)
+
+    # 挖矿
+    def mine_block(self, miner_address):
+        last_block = self.chain[-1]
+        previous_hash = self.hash_block(last_block)
+
+        # 计算工作量证明
+        nonce = 0
+        while self.valid_proof(last_block, nonce, previous_hash) is False:
+            nonce = random.randint(0, 9999999)
+
+        # 创建新的区块，并将挖矿奖励分配给矿工
+        self.add_transaction(sender="0", recipient=miner_address, amount=self.mining_reward)
+        self.create_block(nonce, previous_hash)
+
+    # 计算区块的哈希值
+    def hash_block(self, block):
+        block_encoded = json.dumps(block, sort_keys=True).encode()
+        return hashlib.sha256(block_encoded).hexdigest()
+
+    # 验证工作量证明是否有效
+    def valid_proof(self, last_block, nonce, previous_hash):
+        guess = f'{last_block}{nonce}{previous_hash}'.encode()
+        guess_hash = hashlib.sha256(guess).hexdigest()
+        return guess_hash[:self.difficulty] == "0" * self.difficulty
+
+    # 获取账户余额
+    def get_balance(self, address):
+        balance = 0
+        for block in self.chain:
+            for transaction in block['transactions']:
+                if transaction['sender'] == address:
+                    balance -= transaction['amount']
+                elif transaction['recipient'] == address:
+                    balance += transaction['amount']
+        return balance
+
+    # 分配挖矿奖励
+    def allocate_mining_reward(self):
+        if time.time() - self.last_reward_time >= 600:
+            self.add_transaction(sender="0", recipient=miner_address, amount=self.mining_reward)
+            self.last_reward_time = time.time()
