@@ -1,0 +1,948 @@
+@@ -121,7 +121,7 @@ type stRangesTest struct {
+	expSlots int
+}
+
+// TestSnapGetStorageRange various forms of GetStorageRanges requests.
+// TestSnapGetStorageRanges various forms of GetStorageRanges requests.
+func (s *Suite) TestSnapGetStorageRanges(t *utesting.T) {
+	var (
+		ffHash    = common.HexToHash("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+  12  
+cmd/devp2p/internal/v4test/discv4tests.go
+@@ -37,9 +37,9 @@ const (
+var (
+	// Remote node under test
+	Remote string
+	// IP where the first tester is listening, port will be assigned
+	// Listen1 is the IP where the first tester is listening, port will be assigned
+	Listen1 string = "127.0.0.1"
+	// IP where the second tester is listening, port will be assigned
+	// Listen2 is the IP where the second tester is listening, port will be assigned
+	// Before running the test, you may have to `sudo ifconfig lo0 add 127.0.0.2` (on MacOS at least)
+	Listen2 string = "127.0.0.2"
+)
+@@ -68,7 +68,7 @@ func futureExpiration() uint64 {
+	return uint64(time.Now().Add(expiration).Unix())
+}
+
+// This test just sends a PING packet and expects a response.
+// BasicPing just sends a PING packet and expects a response.
+func BasicPing(t *utesting.T) {
+	te := newTestEnv(Remote, Listen1, Listen2)
+	defer te.close()
+@@ -137,7 +137,7 @@ func (te *testenv) checkPong(reply v4wire.Packet, pingHash []byte) error {
+	return nil
+}
+
+// This test sends a PING packet with wrong 'to' field and expects a PONG response.
+// PingWrongTo sends a PING packet with wrong 'to' field and expects a PONG response.
+func PingWrongTo(t *utesting.T) {
+	te := newTestEnv(Remote, Listen1, Listen2)
+	defer te.close()
+@@ -154,7 +154,7 @@ func PingWrongTo(t *utesting.T) {
+	}
+}
+
+// This test sends a PING packet with wrong 'from' field and expects a PONG response.
+// PingWrongFrom sends a PING packet with wrong 'from' field and expects a PONG response.
+func PingWrongFrom(t *utesting.T) {
+	te := newTestEnv(Remote, Listen1, Listen2)
+	defer te.close()
+@@ -172,7 +172,7 @@ func PingWrongFrom(t *utesting.T) {
+	}
+}
+
+// This test sends a PING packet with additional data at the end and expects a PONG
+// PingExtraData This test sends a PING packet with additional data at the end and expects a PONG
+// response. The remote node should respond because EIP-8 mandates ignoring additional
+// trailing data.
+func PingExtraData(t *utesting.T) {
+  14  
+cmd/devp2p/internal/v5test/discv5tests.go
+@@ -58,7 +58,7 @@ func (s *Suite) AllTests() []utesting.Test {
+	}
+}
+
+// This test sends PING and expects a PONG response.
+// TestPing sends PING and expects a PONG response.
+func (s *Suite) TestPing(t *utesting.T) {
+	conn, l1 := s.listen1(t)
+	defer conn.close()
+@@ -84,7 +84,7 @@ func checkPong(t *utesting.T, pong *v5wire.Pong, ping *v5wire.Ping, c net.Packet
+	}
+}
+
+// This test sends PING with a 9-byte request ID, which isn't allowed by the spec.
+// TestPingLargeRequestID sends PING with a 9-byte request ID, which isn't allowed by the spec.
+// The remote node should not respond.
+func (s *Suite) TestPingLargeRequestID(t *utesting.T) {
+	conn, l1 := s.listen1(t)
+@@ -103,7 +103,7 @@ func (s *Suite) TestPingLargeRequestID(t *utesting.T) {
+	}
+}
+
+// In this test, a session is established from one IP as usual. The session is then reused
+// TestPingMultiIP establishes a session from one IP as usual. The session is then reused
+// on another IP, which shouldn't work. The remote node should respond with WHOAREYOU for
+// the attempt from a different IP.
+func (s *Suite) TestPingMultiIP(t *utesting.T) {
+@@ -153,7 +153,7 @@ func (s *Suite) TestPingMultiIP(t *utesting.T) {
+	}
+}
+
+// This test starts a handshake, but doesn't finish it and sends a second ordinary message
+// TestPingHandshakeInterrupted starts a handshake, but doesn't finish it and sends a second ordinary message
+// packet instead of a handshake message packet. The remote node should respond with
+// another WHOAREYOU challenge for the second packet.
+func (s *Suite) TestPingHandshakeInterrupted(t *utesting.T) {
+@@ -180,7 +180,7 @@ func (s *Suite) TestPingHandshakeInterrupted(t *utesting.T) {
+	}
+}
+
+// This test sends TALKREQ and expects an empty TALKRESP response.
+// TestTalkRequest sends TALKREQ and expects an empty TALKRESP response.
+func (s *Suite) TestTalkRequest(t *utesting.T) {
+	conn, l1 := s.listen1(t)
+	defer conn.close()
+@@ -215,7 +215,7 @@ func (s *Suite) TestTalkRequest(t *utesting.T) {
+	}
+}
+
+// This test checks that the remote node returns itself for FINDNODE with distance zero.
+// TestFindnodeZeroDistance checks that the remote node returns itself for FINDNODE with distance zero.
+func (s *Suite) TestFindnodeZeroDistance(t *utesting.T) {
+	conn, l1 := s.listen1(t)
+	defer conn.close()
+@@ -232,7 +232,7 @@ func (s *Suite) TestFindnodeZeroDistance(t *utesting.T) {
+	}
+}
+
+// In this test, multiple nodes ping the node under test. After waiting for them to be
+// TestFindnodeResults pings the node under test from multiple nodes. After waiting for them to be
+// accepted into the remote table, the test checks that they are returned by FINDNODE.
+func (s *Suite) TestFindnodeResults(t *utesting.T) {
+	// Create bystanders.
+  4  
+core/rawdb/schema.go
+@@ -105,7 +105,9 @@ var (
+	genesisPrefix  = []byte("ethereum-genesis-") // genesis state prefix for the db
+
+	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
+	BloomBitsIndexPrefix = []byte("iB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
+
+	// BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
+	BloomBitsIndexPrefix = []byte("iB")
+
+	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
+	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
+  2  
+core/state/snapshot/snapshot.go
+@@ -844,7 +844,7 @@ func (t *Tree) generating() (bool, error) {
+	return layer.genMarker != nil, nil
+}
+
+// diskRoot is a external helper function to return the disk layer root.
+// DiskRoot is a external helper function to return the disk layer root.
+func (t *Tree) DiskRoot() common.Hash {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+  4  
+core/state/state_object.go
+@@ -449,7 +449,7 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
+// Attribute accessors
+//
+
+// Returns the address of the contract/account
+// Address returns the address of the contract/account
+func (s *stateObject) Address() common.Address {
+	return s.address
+}
+@@ -527,7 +527,7 @@ func (s *stateObject) Nonce() uint64 {
+	return s.data.Nonce
+}
+
+// Never called, but must be present to allow stateObject to be used
+// Value is never called, but must be present to allow stateObject to be used
+// as a vm.Account interface that also satisfies the vm.ContractRef
+// interface. Interfaces are awesome.
+func (s *stateObject) Value() *big.Int {
+  2  
+core/state_transition.go
+@@ -31,6 +31,8 @@ import (
+
+var emptyCodeHash = crypto.Keccak256Hash(nil)
+
+// StateTransition represents a state transition.
+//
+// The State Transitioning Model
+//
+// A state transition is a change made when a transaction is applied to the current world
+  2  
+core/tx_pool.go
+@@ -865,7 +865,7 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
+	return pool.addTxs(txs, false, false)
+}
+
+// This is like AddRemotes, but waits for pool reorganization. Tests use this method.
+// AddRemotesSync is like AddRemotes, but waits for pool reorganization. Tests use this method.
+func (pool *TxPool) AddRemotesSync(txs []*types.Transaction) []error {
+	return pool.addTxs(txs, false, true)
+}
+  4  
+core/types/transaction_signing.go
+@@ -400,7 +400,7 @@ func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
+	})
+}
+
+// HomesteadTransaction implements TransactionInterface using the
+// HomesteadSigner implements Signer interface using the
+// homestead rules.
+type HomesteadSigner struct{ FrontierSigner }
+
+@@ -427,6 +427,8 @@ func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
+	return recoverPlain(hs.Hash(tx), r, s, v, true)
+}
+
+// FrontierSigner implements Signer interface using the
+// frontier rules.
+type FrontierSigner struct{}
+
+func (s FrontierSigner) ChainID() *big.Int {
+  8  
+core/vm/interface.go
+@@ -79,12 +79,12 @@ type StateDB interface {
+// CallContext provides a basic interface for the EVM calling conventions. The EVM
+// depends on this context being implemented for doing subcalls and initialising new EVM contracts.
+type CallContext interface {
+	// Call another contract
+	// Call calls another contract.
+	Call(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error)
+	// Take another's contract code and execute within our own context
+	// CallCode takes another contracts code and execute within our own context
+	CallCode(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error)
+	// Same as CallCode except sender and value is propagated from parent to child scope
+	// DelegateCall is same as CallCode except sender and value is propagated from parent to child scope
+	DelegateCall(env *EVM, me ContractRef, addr common.Address, data []byte, gas *big.Int) ([]byte, error)
+	// Create a new contract
+	// Create creates a new contract
+	Create(env *EVM, me ContractRef, data []byte, gas, value *big.Int) ([]byte, common.Address, error)
+}
+  2  
+eth/downloader/resultstore.go
+@@ -124,7 +124,7 @@ func (r *resultStore) getFetchResult(headerNumber uint64) (item *fetchResult, in
+	return item, index, stale, throttle, nil
+}
+
+// hasCompletedItems returns true if there are processable items available
+// HasCompletedItems returns true if there are processable items available
+// this method is cheaper than countCompleted
+func (r *resultStore) HasCompletedItems() bool {
+	r.lock.RLock()
+  2  
+eth/filters/filter_system.go
+@@ -129,7 +129,7 @@ const (
+	PendingTransactionsSubscription
+	// BlocksSubscription queries hashes for blocks that are imported
+	BlocksSubscription
+	// LastSubscription keeps track of the last index
+	// LastIndexSubscription keeps track of the last index
+	LastIndexSubscription
+)
+
+  2  
+eth/protocols/snap/peer.go
+@@ -86,7 +86,7 @@ func (p *Peer) RequestAccountRange(id uint64, root common.Hash, origin, limit co
+	})
+}
+
+// RequestStorageRange fetches a batch of storage slots belonging to one or more
+// RequestStorageRanges fetches a batch of storage slots belonging to one or more
+// accounts. If slots from only one account is requested, an origin marker may also
+// be used to retrieve from there.
+func (p *Peer) RequestStorageRanges(id uint64, root common.Hash, accounts []common.Hash, origin, limit []byte, bytes uint64) error {
+  2  
+eth/tracers/js/goja.go
+@@ -214,7 +214,7 @@ func (t *jsTracer) CaptureTxStart(gasLimit uint64) {
+	t.gasLimit = gasLimit
+}
+
+// CaptureTxStart implements the Tracer interface and is invoked at the end of
+// CaptureTxEnd implements the Tracer interface and is invoked at the end of
+// transaction processing.
+func (t *jsTracer) CaptureTxEnd(restGas uint64) {}
+
+  2  
+les/api.go
+@@ -382,7 +382,7 @@ func (api *LightAPI) LatestCheckpoint() ([4]string, error) {
+	return res, nil
+}
+
+// GetLocalCheckpoint returns the specific local checkpoint package.
+// GetCheckpoint returns the specific local checkpoint package.
+//
+// The checkpoint package consists of 3 strings:
+//
+  2  
+les/downloader/downloader.go
+@@ -14,7 +14,7 @@
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
+// This is a temporary package whilst working on the eth/66 blocking refactors.
+// Package downloader is a temporary package whilst working on the eth/66 blocking refactors.
+// After that work is done, les needs to be refactored to use the new package,
+// or alternatively use a stripped down version of it. Either way, we need to
+// keep the changes scoped so duplicating temporarily seems the sanest.
+  2  
+les/downloader/resultstore.go
+@@ -124,7 +124,7 @@ func (r *resultStore) getFetchResult(headerNumber uint64) (item *fetchResult, in
+	return item, index, stale, throttle, nil
+}
+
+// hasCompletedItems returns true if there are processable items available
+// HasCompletedItems returns true if there are processable items available
+// this method is cheaper than countCompleted
+func (r *resultStore) HasCompletedItems() bool {
+	r.lock.RLock()
+  2  
+les/fetcher/block_fetcher.go
+@@ -14,7 +14,7 @@
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
+// This is a temporary package whilst working on the eth/66 blocking refactors.
+// Package fetcher is a temporary package whilst working on the eth/66 blocking refactors.
+// After that work is done, les needs to be refactored to use the new package,
+// or alternatively use a stripped down version of it. Either way, we need to
+// keep the changes scoped so duplicating temporarily seems the sanest.
+  2  
+les/flowcontrol/manager.go
+@@ -153,7 +153,7 @@ func (cm *ClientManager) SetRechargeCurve(curve PieceWiseLinear) {
+	}
+}
+
+// SetCapacityRaiseThreshold sets a threshold value used for raising capFactor.
+// SetCapacityLimits sets a threshold value used for raising capFactor.
+// Either if the difference between total allowed and connected capacity is less
+// than this threshold or if their ratio is less than capacityRaiseThresholdRatio
+// then capFactor is allowed to slowly raise.
+  18  
+les/odr_requests.go
+@@ -93,7 +93,7 @@ func (r *BlockRequest) Request(reqID uint64, peer *serverPeer) error {
+	return peer.requestBodies(reqID, []common.Hash{r.Hash})
+}
+
+// Valid processes an ODR request reply message from the LES network
+// Validate processes an ODR request reply message from the LES network
+// returns true and stores results in memory if the message was a valid reply
+// to the request (implementation of LesOdrRequest)
+func (r *BlockRequest) Validate(db ethdb.Database, msg *Msg) error {
+@@ -151,7 +151,7 @@ func (r *ReceiptsRequest) Request(reqID uint64, peer *serverPeer) error {
+	return peer.requestReceipts(reqID, []common.Hash{r.Hash})
+}
+
+// Valid processes an ODR request reply message from the LES network
+// Validate processes an ODR request reply message from the LES network
+// returns true and stores results in memory if the message was a valid reply
+// to the request (implementation of LesOdrRequest)
+func (r *ReceiptsRequest) Validate(db ethdb.Database, msg *Msg) error {
+@@ -213,7 +213,7 @@ func (r *TrieRequest) Request(reqID uint64, peer *serverPeer) error {
+	return peer.requestProofs(reqID, []ProofReq{req})
+}
+
+// Valid processes an ODR request reply message from the LES network
+// Validate processes an ODR request reply message from the LES network
+// returns true and stores results in memory if the message was a valid reply
+// to the request (implementation of LesOdrRequest)
+func (r *TrieRequest) Validate(db ethdb.Database, msg *Msg) error {
+@@ -242,7 +242,7 @@ type CodeReq struct {
+	AccKey []byte
+}
+
+// ODR request type for node data (used for retrieving contract code), see LesOdrRequest interface
+// CodeRequest is the ODR request type for node data (used for retrieving contract code), see LesOdrRequest interface
+type CodeRequest light.CodeRequest
+
+// GetCost returns the cost of the given ODR request according to the serving
+@@ -266,7 +266,7 @@ func (r *CodeRequest) Request(reqID uint64, peer *serverPeer) error {
+	return peer.requestCode(reqID, []CodeReq{req})
+}
+
+// Valid processes an ODR request reply message from the LES network
+// Validate processes an ODR request reply message from the LES network
+// returns true and stores results in memory if the message was a valid reply
+// to the request (implementation of LesOdrRequest)
+func (r *CodeRequest) Validate(db ethdb.Database, msg *Msg) error {
+@@ -312,7 +312,7 @@ type HelperTrieResps struct { // describes all responses, not just a single one
+	AuxData [][]byte
+}
+
+// ODR request type for requesting headers by Canonical Hash Trie, see LesOdrRequest interface
+// ChtRequest is the ODR request type for requesting headers by Canonical Hash Trie, see LesOdrRequest interface
+type ChtRequest light.ChtRequest
+
+// GetCost returns the cost of the given ODR request according to the serving
+@@ -343,7 +343,7 @@ func (r *ChtRequest) Request(reqID uint64, peer *serverPeer) error {
+	return peer.requestHelperTrieProofs(reqID, []HelperTrieReq{req})
+}
+
+// Valid processes an ODR request reply message from the LES network
+// Validate processes an ODR request reply message from the LES network
+// returns true and stores results in memory if the message was a valid reply
+// to the request (implementation of LesOdrRequest)
+func (r *ChtRequest) Validate(db ethdb.Database, msg *Msg) error {
+@@ -400,7 +400,7 @@ type BloomReq struct {
+	BloomTrieNum, BitIdx, SectionIndex, FromLevel uint64
+}
+
+// ODR request type for requesting headers by Canonical Hash Trie, see LesOdrRequest interface
+// BloomRequest is the ODR request type for requesting headers by Canonical Hash Trie, see LesOdrRequest interface
+type BloomRequest light.BloomRequest
+
+// GetCost returns the cost of the given ODR request according to the serving
+@@ -439,7 +439,7 @@ func (r *BloomRequest) Request(reqID uint64, peer *serverPeer) error {
+	return peer.requestHelperTrieProofs(reqID, reqs)
+}
+
+// Valid processes an ODR request reply message from the LES network
+// Validate processes an ODR request reply message from the LES network
+// returns true and stores results in memory if the message was a valid reply
+// to the request (implementation of LesOdrRequest)
+func (r *BloomRequest) Validate(db ethdb.Database, msg *Msg) error {
+  2  
+les/protocol.go
+@@ -45,7 +45,7 @@ var (
+	AdvertiseProtocolVersions = []uint{lpv2} // clients are searching for the first advertised protocol in the list
+)
+
+// Number of implemented message corresponding to different protocol versions.
+// ProtocolLengths is the number of implemented message corresponding to different protocol versions.
+var ProtocolLengths = map[uint]uint64{lpv2: 22, lpv3: 24, lpv4: 24}
+
+const (
+  20  
+les/utils/expiredvalue.go
+@@ -67,13 +67,13 @@ func (e ExpirationFactor) Value(base float64, exp uint64) float64 {
+	return base / e.Factor * math.Pow(2, float64(int64(exp-e.Exp)))
+}
+
+// value calculates the value at the given moment.
+// Value calculates the value at the given moment.
+func (e ExpiredValue) Value(logOffset Fixed64) uint64 {
+	offset := Uint64ToFixed64(e.Exp) - logOffset
+	return uint64(float64(e.Base) * offset.Pow2())
+}
+
+// add adds a signed value at the given moment
+// Add adds a signed value at the given moment
+func (e *ExpiredValue) Add(amount int64, logOffset Fixed64) int64 {
+	integer, frac := logOffset.ToUint64(), logOffset.Fraction()
+	factor := frac.Pow2()
+@@ -102,7 +102,7 @@ func (e *ExpiredValue) Add(amount int64, logOffset Fixed64) int64 {
+	return net
+}
+
+// addExp adds another ExpiredValue
+// AddExp adds another ExpiredValue
+func (e *ExpiredValue) AddExp(a ExpiredValue) {
+	if e.Exp > a.Exp {
+		a.Base >>= (e.Exp - a.Exp)
+@@ -114,7 +114,7 @@ func (e *ExpiredValue) AddExp(a ExpiredValue) {
+	e.Base += a.Base
+}
+
+// subExp subtracts another ExpiredValue
+// SubExp subtracts another ExpiredValue
+func (e *ExpiredValue) SubExp(a ExpiredValue) {
+	if e.Exp > a.Exp {
+		a.Base >>= (e.Exp - a.Exp)
+@@ -143,7 +143,7 @@ type LinearExpiredValue struct {
+	Rate   mclock.AbsTime `rlp:"-"` // Expiration rate(by nanosecond), will ignored by RLP
+}
+
+// value calculates the value at the given moment. This function always has the
+// Value calculates the value at the given moment. This function always has the
+// assumption that the given timestamp shouldn't less than the recorded one.
+func (e LinearExpiredValue) Value(now mclock.AbsTime) uint64 {
+	offset := uint64(now / e.Rate)
+@@ -158,7 +158,7 @@ func (e LinearExpiredValue) Value(now mclock.AbsTime) uint64 {
+	return e.Val
+}
+
+// add adds a signed value at the given moment. This function always has the
+// Add adds a signed value at the given moment. This function always has the
+// assumption that the given timestamp shouldn't less than the recorded one.
+func (e *LinearExpiredValue) Add(amount int64, now mclock.AbsTime) uint64 {
+	offset := uint64(now / e.Rate)
+@@ -244,17 +244,17 @@ func Uint64ToFixed64(f uint64) Fixed64 {
+	return Fixed64(f * fixedFactor)
+}
+
+// float64ToFixed64 converts float64 to Fixed64 format.
+// Float64ToFixed64 converts float64 to Fixed64 format.
+func Float64ToFixed64(f float64) Fixed64 {
+	return Fixed64(f * fixedFactor)
+}
+
+// toUint64 converts Fixed64 format to uint64.
+// ToUint64 converts Fixed64 format to uint64.
+func (f64 Fixed64) ToUint64() uint64 {
+	return uint64(f64) / fixedFactor
+}
+
+// fraction returns the fractional part of a Fixed64 value.
+// Fraction returns the fractional part of a Fixed64 value.
+func (f64 Fixed64) Fraction() Fixed64 {
+	return f64 % fixedFactor
+}
+@@ -264,7 +264,7 @@ var (
+	fixedToLogFactor = math.Log(2) / float64(fixedFactor)
+)
+
+// pow2Fixed returns the base 2 power of the fixed point value.
+// Pow2 returns the base 2 power of the fixed point value.
+func (f64 Fixed64) Pow2() float64 {
+	return math.Exp(float64(f64) * fixedToLogFactor)
+}
+  6  
+les/vflux/client/serverpool.go
+@@ -89,7 +89,7 @@ type nodeHistoryEnc struct {
+	RedialWaitStart, RedialWaitEnd uint64
+}
+
+// queryFunc sends a pre-negotiation query and blocks until a response arrives or timeout occurs.
+// QueryFunc sends a pre-negotiation query and blocks until a response arrives or timeout occurs.
+// It returns 1 if the remote node has confirmed that connection is possible, 0 if not
+// possible and -1 if no response arrived (timeout).
+type QueryFunc func(*enode.Node) int
+@@ -302,7 +302,7 @@ func (s *ServerPool) addPreNegFilter(input enode.Iterator, query QueryFunc) enod
+	})
+}
+
+// start starts the server pool. Note that NodeStateMachine should be started first.
+// Start starts the server pool. Note that NodeStateMachine should be started first.
+func (s *ServerPool) Start() {
+	s.ns.Start()
+	for _, iter := range s.mixSources {
+@@ -336,7 +336,7 @@ func (s *ServerPool) Start() {
+	atomic.StoreUint32(&s.started, 1)
+}
+
+// stop stops the server pool
+// Stop stops the server pool
+func (s *ServerPool) Stop() {
+	if s.fillSet != nil {
+		s.fillSet.Close()
+  2  
+les/vflux/client/valuetracker.go
+@@ -233,7 +233,7 @@ func (vt *ValueTracker) StatsExpirer() *utils.Expirer {
+	return &vt.statsExpirer
+}
+
+// StatsExpirer returns the current expiration factor so that other values can be expired
+// StatsExpFactor returns the current expiration factor so that other values can be expired
+// with the same rate as the service value statistics.
+func (vt *ValueTracker) StatsExpFactor() utils.ExpirationFactor {
+	vt.statsExpLock.RLock()
+  2  
+les/vflux/requests.go
+@@ -50,7 +50,7 @@ type (
+		Bias      uint64 // seconds
+		AddTokens []IntOrInf
+	}
+	// CapacityQueryReq is the encoding format of the response to the capacity query
+	// CapacityQueryReply is the encoding format of the response to the capacity query
+	CapacityQueryReply []uint64
+)
+
+  2  
+light/lightchain.go
+@@ -453,7 +453,7 @@ func (lc *LightChain) GetTd(hash common.Hash, number uint64) *big.Int {
+	return lc.hc.GetTd(hash, number)
+}
+
+// GetHeaderByNumberOdr retrieves the total difficult from the database or
+// GetTdOdr retrieves the total difficult from the database or
+// network by hash and number, caching it (associated with its hash) if found.
+func (lc *LightChain) GetTdOdr(ctx context.Context, hash common.Hash, number uint64) *big.Int {
+	td := lc.GetTd(hash, number)
+  2  
+light/txpool.go
+@@ -447,7 +447,7 @@ func (pool *TxPool) Add(ctx context.Context, tx *types.Transaction) error {
+	return nil
+}
+
+// AddTransactions adds all valid transactions to the pool and passes them to
+// AddBatch adds all valid transactions to the pool and passes them to
+// the tx relay backend
+func (pool *TxPool) AddBatch(ctx context.Context, txs []*types.Transaction) {
+	pool.mu.Lock()
+  5  
+p2p/discover/v4wire/v4wire.go
+@@ -102,7 +102,7 @@ type (
+	}
+)
+
+// This number is the maximum number of neighbor nodes in a Neighbors packet.
+// MaxNeighbors is the maximum number of neighbor nodes in a Neighbors packet.
+const MaxNeighbors = 12
+
+// This code computes the MaxNeighbors constant value.
+@@ -161,8 +161,9 @@ func NewEndpoint(addr *net.UDPAddr, tcpPort uint16) Endpoint {
+}
+
+type Packet interface {
+	// packet name and type for logging purposes.
+	// Name is the name of the package, for logging purposes.
+	Name() string
+	// Kind is the packet type, for logging purposes.
+	Kind() byte
+}
+
+  2  
+p2p/discover/v5_udp.go
+@@ -54,7 +54,7 @@ type codecV5 interface {
+	// Encode encodes a packet.
+	Encode(enode.ID, string, v5wire.Packet, *v5wire.Whoareyou) ([]byte, v5wire.Nonce, error)
+
+	// decode decodes a packet. It returns a *v5wire.Unknown packet if decryption fails.
+	// Decode decodes a packet. It returns a *v5wire.Unknown packet if decryption fails.
+	// The *enode.Node return value is non-nil when the input contains a handshake response.
+	Decode([]byte, string) (enode.ID, *enode.Node, v5wire.Packet, error)
+}
+  1  
+p2p/discover/v5wire/encoding.go
+@@ -118,6 +118,7 @@ var (
+
+// Public errors.
+var (
+	// ErrInvalidReqID represents error when the ID is invalid.
+	ErrInvalidReqID = errors.New("request ID larger than 8 bytes")
+)
+
+  24  
+p2p/discover/v5wire/msg.go
+@@ -59,7 +59,7 @@ type (
+		Nonce Nonce
+	}
+
+	// WHOAREYOU contains the handshake challenge.
+	// Whoareyou contains the handshake challenge.
+	Whoareyou struct {
+		ChallengeData []byte   // Encoded challenge
+		Nonce         Nonce    // Nonce of request packet
+@@ -73,72 +73,72 @@ type (
+		sent mclock.AbsTime // for handshake GC.
+	}
+
+	// PING is sent during liveness checks.
+	// Ping is sent during liveness checks.
+	Ping struct {
+		ReqID  []byte
+		ENRSeq uint64
+	}
+
+	// PONG is the reply to PING.
+	// Pong is the reply to Ping.
+	Pong struct {
+		ReqID  []byte
+		ENRSeq uint64
+		ToIP   net.IP // These fields should mirror the UDP envelope address of the ping
+		ToPort uint16 // packet, which provides a way to discover the external address (after NAT).
+	}
+
+	// FINDNODE is a query for nodes in the given bucket.
+	// Findnode is a query for nodes in the given bucket.
+	Findnode struct {
+		ReqID     []byte
+		Distances []uint
+	}
+
+	// NODES is the reply to FINDNODE and TOPICQUERY.
+	// Nodes is the reply to Findnode and Topicquery.
+	Nodes struct {
+		ReqID []byte
+		Total uint8
+		Nodes []*enr.Record
+	}
+
+	// TALKREQ is an application-level request.
+	// TalkRequest is an application-level request.
+	TalkRequest struct {
+		ReqID    []byte
+		Protocol string
+		Message  []byte
+	}
+
+	// TALKRESP is the reply to TALKREQ.
+	// TalkResponse is the reply to TalkRequest.
+	TalkResponse struct {
+		ReqID   []byte
+		Message []byte
+	}
+
+	// REQUESTTICKET requests a ticket for a topic queue.
+	// RequestTicket requests a ticket for a topic queue.
+	RequestTicket struct {
+		ReqID []byte
+		Topic []byte
+	}
+
+	// TICKET is the response to REQUESTTICKET.
+	// Ticket is the response to RequestTicket.
+	Ticket struct {
+		ReqID  []byte
+		Ticket []byte
+	}
+
+	// REGTOPIC registers the sender in a topic queue using a ticket.
+	// Regtopic registers the sender in a topic queue using a ticket.
+	Regtopic struct {
+		ReqID  []byte
+		Ticket []byte
+		ENR    *enr.Record
+	}
+
+	// REGCONFIRMATION is the reply to REGTOPIC.
+	// Regconfirmation is the reply to Regtopic.
+	Regconfirmation struct {
+		ReqID      []byte
+		Registered bool
+	}
+
+	// TOPICQUERY asks for nodes with the given topic.
+	// TopicQuery asks for nodes with the given topic.
+	TopicQuery struct {
+		ReqID []byte
+		Topic []byte
+  5  
+p2p/enode/idscheme.go
+@@ -28,17 +28,18 @@ import (
+	"golang.org/x/crypto/sha3"
+)
+
+// List of known secure identity schemes.
+// ValidSchemes is a List of known secure identity schemes.
+var ValidSchemes = enr.SchemeMap{
+	"v4": V4ID{},
+}
+
+// ValidSchemesForTesting is a List of identity schemes for testing.
+var ValidSchemesForTesting = enr.SchemeMap{
+	"v4":   V4ID{},
+	"null": NullID{},
+}
+
+// v4ID is the "v4" identity scheme.
+// V4ID is the "v4" identity scheme.
+type V4ID struct{}
+
+// SignV4 signs a record using the v4 scheme.
+  2  
+p2p/enode/node.go
+@@ -199,7 +199,7 @@ func (n ID) String() string {
+	return fmt.Sprintf("%x", n[:])
+}
+
+// The Go syntax representation of a ID is a call to HexID.
+// GoString returns the Go syntax representation of a ID is a call to HexID.
+func (n ID) GoString() string {
+	return fmt.Sprintf("enode.HexID(\"%x\")", n[:])
+}
+  2  
+p2p/enode/nodedb.go
+@@ -494,7 +494,7 @@ func nextNode(it iterator.Iterator) *Node {
+	return nil
+}
+
+// close flushes and closes the database files.
+// Close flushes and closes the database files.
+func (db *DB) Close() {
+	close(db.quit)
+	db.lvl.Close()
+  4  
+p2p/enr/entries.go
+@@ -61,7 +61,7 @@ type TCP uint16
+
+func (v TCP) ENRKey() string { return "tcp" }
+
+// UDP is the "udp" key, which holds the IPv6-specific UDP port of the node.
+// TCP6 is the "tcp6" key, which holds the IPv6-specific tcp6 port of the node.
+type TCP6 uint16
+
+func (v TCP6) ENRKey() string { return "tcp6" }
+@@ -71,7 +71,7 @@ type UDP uint16
+
+func (v UDP) ENRKey() string { return "udp" }
+
+// UDP is the "udp" key, which holds the IPv6-specific UDP port of the node.
+// UDP6 is the "udp6" key, which holds the IPv6-specific UDP port of the node.
+type UDP6 uint16
+
+func (v UDP6) ENRKey() string { return "udp6" }
+  6  
+p2p/nat/nat.go
+@@ -29,7 +29,7 @@ import (
+	natpmp "github.com/jackpal/go-nat-pmp"
+)
+
+// An implementation of nat.Interface can map local ports to ports
+// Interface An implementation of nat.Interface can map local ports to ports
+// accessible from the Internet.
+type Interface interface {
+	// These methods manage a mapping between a port on the local
+@@ -41,11 +41,11 @@ type Interface interface {
+	AddMapping(protocol string, extport, intport int, name string, lifetime time.Duration) error
+	DeleteMapping(protocol string, extport, intport int) error
+
+	// This method should return the external (Internet-facing)
+	// ExternalIP should return the external (Internet-facing)
+	// address of the gateway device.
+	ExternalIP() (net.IP, error)
+
+	// Should return name of the method. This is used for logging.
+	// String should return name of the method. This is used for logging.
+	String() string
+}
+
+  2  
+p2p/nodestate/nodestate.go
+@@ -117,7 +117,7 @@ type (
+		decode func([]byte) (interface{}, error)
+	}
+
+	// stateSetup contains the list of flags and fields used by the application
+	// Setup contains the list of flags and fields used by the application
+	Setup struct {
+		Version uint
+		flags   []flagDefinition
+  2  
+p2p/simulations/http.go
+@@ -365,7 +365,7 @@ func (s *Server) StopMocker(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
+// GetMockerList returns a list of available mockers
+// GetMockers returns a list of available mockers
+func (s *Server) GetMockers(w http.ResponseWriter, req *http.Request) {
+	list := GetMockerList()
+	s.JSON(w, http.StatusOK, list)
+  4  
+p2p/simulations/mocker.go
+@@ -36,12 +36,12 @@ var mockerList = map[string]func(net *Network, quit chan struct{}, nodeCount int
+	"boot":          boot,
+}
+
+// Lookup a mocker by its name, returns the mockerFn
+// LookupMocker looks a mocker by its name, returns the mockerFn
+func LookupMocker(mockerType string) func(net *Network, quit chan struct{}, nodeCount int) {
+	return mockerList[mockerType]
+}
+
+// Get a list of mockers (keys of the map)
+// GetMockerList returns a list of mockers (keys of the map)
+// Useful for frontend to build available mocker selection
+func GetMockerList() []string {
+	list := make([]string, 0, len(mockerList))
+  4  
+p2p/simulations/network.go
+@@ -646,8 +646,8 @@ func (net *Network) getConn(oneID, otherID enode.ID) *Conn {
+	return net.Conns[i]
+}
+
+// InitConn(one, other) retrieves the connection model for the connection between
+// peers one and other, or creates a new one if it does not exist
+// InitConn retrieves the connection model for the connection between
+// peers 'oneID' and 'otherID', or creates a new one if it does not exist
+// the order of nodes does not matter, i.e., Conn(i,j) == Conn(j, i)
+// it checks if the connection is already up, and if the nodes are running
+// NOTE:
+  2  
+rlp/encbuffer.go
+@@ -381,7 +381,7 @@ func (w EncoderBuffer) WriteBytes(b []byte) {
+	w.buf.writeBytes(b)
+}
+
+// WriteBytes encodes s as an RLP string.
+// WriteString encodes s as an RLP string.
+func (w EncoderBuffer) WriteString(s string) {
+	w.buf.writeString(s)
+}
+  5  
+rlp/encode.go
+@@ -29,8 +29,11 @@ import (
+var (
+	// Common encoded values.
+	// These are useful when implementing EncodeRLP.
+
+	// EmptyString is the encoding of an empty string.
+	EmptyString = []byte{0x80}
+	EmptyList   = []byte{0xC0}
+	// EmptyList is the encoding of an empty list.
+	EmptyList = []byte{0xC0}
+)
+
+var ErrNegativeBigInt = errors.New("rlp: cannot encode negative big.Int")
+  2  
+rlp/internal/rlpstruct/rlpstruct.go
+@@ -44,7 +44,7 @@ type Type struct {
+	Elem      *Type // non-nil for Kind values of Ptr, Slice, Array
+}
+
+// defaultNilValue determines whether a nil pointer to t encodes/decodes
+// DefaultNilValue determines whether a nil pointer to t encodes/decodes
+// as an empty string or empty list.
+func (t Type) DefaultNilValue() NilKind {
+	k := t.Kind
+  2  
+tests/fuzzers/difficulty/difficulty-fuzz.go
+@@ -66,7 +66,7 @@ func (f *fuzzer) readBool() bool {
+	return f.read(1)[0]&0x1 == 0
+}
+
+// The function must return
+// Fuzz function must return
+//
+//   - 1 if the fuzzer should increase priority of the
+//     given input during subsequent fuzzing (for example, the input is lexically
+  1  
+tests/fuzzers/rangeproof/rangeproof-fuzzer.go
+@@ -179,6 +179,7 @@ func (f *fuzzer) fuzz() int {
+	return ok
+}
+
+// Fuzz is the fuzzing entryy-point.
+// The function must return
+//
+//   - 1 if the fuzzer should increase priority of the
+  1  
+tests/fuzzers/stacktrie/trie_fuzzer.go
+@@ -113,6 +113,7 @@ func (k kvs) Swap(i, j int) {
+	k[j], k[i] = k[i], k[j]
+}
+
+// Fuzz is the fuzzing entry-point.
+// The function must return
+//
+//   - 1 if the fuzzer should increase priority of the
+  1  
+tests/fuzzers/trie/trie-fuzzer.go
+@@ -117,6 +117,7 @@ func Generate(input []byte) randTest {
+	return steps
+}
+
+// Fuzz is the fuzzing entry-point.
+// The function must return
+//
+//   - 1 if the fuzzer should increase priority of the
+  2  
+tests/init.go
+@@ -232,7 +232,7 @@ var Forks = map[string]*params.ChainConfig{
+	},
+}
+
+// Returns the set of defined fork names
+// AvailableForks returns the set of defined fork names
+func AvailableForks() []string {
+	var availableForks []string
+	for k := range Forks {
