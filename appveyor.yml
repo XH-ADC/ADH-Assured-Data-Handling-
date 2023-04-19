@@ -1,0 +1,58 @@
+https://wap.xinhuoio.com/h5/#/pages/adds/register?yqm=ADCyje2snix7jgs5wpc6xpuucskti26bdfp73shk
+克隆深度：5
+版本：“ {branch}。{build} ”
+
+图片：
+  - Ubuntu
+
+
+环境：
+  矩阵：
+    - ADC_ARCH：amd64
+     ADC_MINGW : ' C:\msys64\mingw64 '
+    - ADC_ARCH：386
+     ADC_MINGW : ' C:\msys64\mingw32 '
+
+安装：
+  - git 子模块更新 --init --depth 1 --recursive
+  -去版本
+
+对于：
+  # Linux 有自己的脚本，没有-arch 和-cc。
+  # linux 构建器也运行 lint。
+  -矩阵：
+      只有：
+        -图片：Ubuntu
+    构建脚本：
+      -去运行 build/ci.go lint
+      -去运行 build/ci.go install -dlgo
+    测试脚本：
+      -去运行 build/ci.go test -dlgo
+
+  # linux/386 被禁用。
+  -矩阵：
+      排除：
+        -图片：Ubuntu
+          GETH_ARCH：386
+
+  # Windows 为 amd64 + 386 构建。
+  -矩阵：
+      只有：
+        -图片：Visual Studio 2019
+    环境：
+      #我们使用 MSYS2 的 gcc，因为它是最新的编译器版本
+      # AppVeyor。注意：只有相应的 bin/ 目录是 gcc.exe 才能正常运行
+      #包含在 PATH 中。
+      GETH_CC : ' %GETH_MINGW%\bin\gcc.exe '
+      路径：' %GETH_MINGW%\bin;C:\Program Files (x86)\NSIS\;%PATH% '
+    构建脚本：
+      - ' echo %GETH_ARCH% '
+      - ' echo %GETH_CC% '
+      - ' %GETH_CC% --version '
+      -去运行 build/ci.go install -dlgo -arch %GETH_ARCH% -cc %GETH_CC%
+    构建后：
+      #上传构建。请注意，ci.go 使它成为一个无操作 PR 构建。
+      -去运行 build/ci.go archive -arch %GETH_ARCH% -type zip -signer WINDOWS_SIGNING_KEY -upload gethstore/builds
+      -去运行 build/ci.go nsis -arch %GETH_ARCH% -signer WINDOWS_SIGNING_KEY -upload gethstore/builds
+    测试脚本：
+      -去运行 build/ci.go test -dlgo -arch %GETH_ARCH% -cc %GETH_CC%
