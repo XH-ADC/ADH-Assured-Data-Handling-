@@ -1,0 +1,1094 @@
+dnl需要 autoconf 2.60 (AS_ECHO/AS_ECHO_N)
+AC_PREREQ ( [ 2.60 ] )
+定义( _CLIENT_VERSION_MAJOR , 0 )
+定义( _CLIENT_VERSION_MINOR , 13 )
+定义( _CLIENT_VERSION_REVISION , 1 )
+定义（_CLIENT_VERSION_BUILD，0 ）
+定义（_CLIENT_VERSION_IS_RELEASE，真）
+定义（_COPYRIGHT_YEAR，2016 年）
+定义（_COPYRIGHT_HOLDERS，[ %s 开发者]）
+定义（_COPYRIGHT_HOLDERS_SUBSTITUTION，[ [比特币核心] ]）
+AC_INIT （[比特币核心]，[ _CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_REVISION ]，[ https://github.com/bitcoin/bitcoin/issues ]，[比特币]，[ https://bitcoincore.org/ ]）
+AC_CONFIG_SRCDIR ( [ src/main.cpp ] )
+AC_CONFIG_HEADERS ( [ src/config/bitcoin-config.h ] )
+AC_CONFIG_AUX_DIR （[构建辅助]）
+AC_CONFIG_MACRO_DIR ( [ build-aux/m4 ] )
+
+BITCOIN_DAEMON_NAME=比特币
+BITCOIN_GUI_NAME=比特币-qt
+BITCOIN_CLI_NAME=比特币客户端
+BITCOIN_TX_NAME=比特币-TX
+
+AC_CANONICAL_HOST
+
+AH_TOP ( [ #ifndef BITCOIN_CONFIG_H ] )
+AH_TOP ( [ #define BITCOIN_CONFIG_H ] )
+AH_BOTTOM ( [ #endif //BITCOIN_CONFIG_H ] )
+
+dnl faketime 会破坏配置并且只需要 make。在这里禁用它。
+取消设置 FAKETIME
+
+dnl Automake 初始化设置和检查
+AM_INIT_AUTOMAKE （[未定义子目录对象外]）
+
+dnl faketime 与时间戳混淆并导致配置重新运行。
+dnl --disable-maintainer-mode 可以用来绕过这个。
+AM_MAINTAINER_MODE（[启用]）
+
+dnl使编译标志安静，除非使用 V=1
+m4_ifdef （[ AM_SILENT_RULES ]，[ AM_SILENT_RULES（[是]）]）
+
+dnl编译器检查（在 libtool 之前）。
+如果测试“x${CXXFLAGS+set}”=“xset”；然后
+  CXXFLAGS_overridden=是
+别的
+  CXXFLAGS_overridden=否
+菲
+AC_PROG_CXX
+
+dnl默认情况下，mingw 的 libtool 拒绝将静态库链接到 dll 中
+dnl害怕混合 pic/non-pic 对象，以及导入/导出并发症。自从
+dnl我们控制了那些，重新启用该功能。
+案例$主机在
+  *明威*)
+     lt_cv_deplibs_check_method="pass_all"
+  ;;
+esac
+dnl需要 C++11 编译器（无 GNU 扩展）
+AX_CXX_COMPILE_STDCXX （[ 11 ]，[ noext ]，[强制]）
+dnl检查 <std::atomic> 是否需要 -latomic
+CHECK_ATOMIC
+
+dnl除非用户指定 OBJCXX，否则强制它与 CXX 相同。这确保了
+dnl我们得到了相同的 -std 标志。
+m4_ifdef ( [ AC_PROG_OBJCXX ] , [
+如果测试“x${OBJCXX+set}”=“x”；然后
+  OBJCXX="${CXX}"
+菲
+AC_PROG_OBJCXX
+] )
+
+dnl Libtool 初始化检查。
+LT_INIT（[仅图片]）
+
+dnl检查/返回基本程序的 PATH。
+AC_PATH_TOOL ( AR , AR )
+AC_PATH_TOOL （RANLIB，ranlib ）
+AC_PATH_TOOL （剥离，剥离）
+AC_PATH_TOOL （GCOV，gcov ）
+AC_PATH_PROG ( LCOV , lcov )
+AC_PATH_PROG （Java，Java ）
+dnl Python 3.x 从 3.4 开始受支持（参见 https://github.com/bitcoin/bitcoin/issues/7893）
+AC_PATH_PROGS （[ Python ]，[ python3.6 python3.5 python3.4 python3 python2.7 python2 python ]）
+AC_PATH_PROG ( GENHTML , genhtml )
+AC_PATH_PROG （[混帐]，[混帐]）
+AC_PATH_PROG （CCACHE，缓存）
+AC_PATH_PROG ( XGETTEXT , xgettext )
+AC_PATH_PROG （十六进制转储，十六进制转储）
+AC_PATH_TOOL ( READELF , readelf )
+AC_PATH_TOOL ( CPPFILT , c++filt )
+AC_PATH_TOOL ( OBJCOPY , objcopy )
+
+AC_ARG_VAR （PYTHONPATH，增加 python模块文件的默认搜索路径 ）_      
+
+#启用钱包
+AC_ARG_ENABLE （[钱包]，
+  [ AS_HELP_STRING ( [ --disable-wallet ] ,
+  [禁用钱包（默认启用）] ) ] ,
+  [ enable_wallet=$enableval ] ,
+  [启用钱包=是]）
+
+AC_ARG_WITH ( [ miniupnpc ] ,
+  [ AS_HELP_STRING ( [ --with-miniupnpc ] ,
+  [启用 UPNP（如果找到 libminiupnpc，则默认为是）] ) ] ,
+  [ use_upnp=$withval ] ,
+  [ use_upnp=auto ] )
+
+AC_ARG_ENABLE ( [ upnp-default ] ,
+  [ AS_HELP_STRING ( [ --enable-upnp-default ] ,
+  [如果启用了 UPNP，则在启动时将其打开（默认为否）] ) ] ,
+  [ use_upnp_default=$enableval ] ,
+  [ use_upnp_default=no ] )
+
+AC_ARG_ENABLE （测试，
+    AS_HELP_STRING ( [ --disable-tests ] , [不编译测试 (默认是编译) ] ) ,
+    [ use_tests=$enableval ] ,
+    [使用测试=是]）
+
+AC_ARG_ENABLE （图形用户界面测试，
+    AS_HELP_STRING ( [ --disable-gui-tests ] , [不编译 GUI 测试（如果启用 GUI 和测试则默认编译）] ) ,
+    [ use_gui_tests=$enableval ] ,
+    [ use_gui_tests=$use_tests ] )
+
+AC_ARG_ENABLE （长凳，
+    AS_HELP_STRING ( [ --disable-bench ] , [不编译 benchmarks (default is to compile) ] ) ,
+    [ use_bench=$enableval ] ,
+    [ use_bench=yes ] )
+
+AC_ARG_WITH ( [比较工具] ,
+    AS_HELP_STRING ( [ --with-comparison-tool ] , [ java 比较工具的路径 (需要 --enable-tests) ] ) ,
+    [ use_comparison_tool=$withval ] ,
+    [使用比较工具=否]）
+
+AC_ARG_ENABLE （[比较工具重组测试]，
+    AS_HELP_STRING ( [ --enable-comparison-tool-reorg-tests ] , [在比较工具中启用昂贵的重组测试（默认否）] ) ,
+    [ use_comparison_tool_reorg_tests=$enableval ] ,
+    [ use_comparison_tool_reorg_tests=no ] )
+
+AC_ARG_ENABLE ( [扩展 rpc 测试] ,
+    AS_HELP_STRING ( [ --enable-extended-rpc-tests ] , [使用 lcov 时启用昂贵的 RPC 测试（默认否）] ) ,
+    [ use_extended_rpc_tests=$enableval ] ,
+    [ use_extended_rpc_tests=no ] )
+
+AC_ARG_WITH ( [ qrencode ] ,
+  [ AS_HELP_STRING ( [ --with-qrencode ] ,
+  [启用二维码支持（如果启用了 qt 并且找到了 libqrencode，则默认为是）] ) ] ,
+  [ use_qr=$withval ] ,
+  [ use_qr=auto ] )
+
+AC_ARG_ENABLE ( [加固] ,
+  [ AS_HELP_STRING ( [ --disable-hardening ] ,
+  [不要尝试强化生成的可执行文件（默认是强化）] ) ] ,
+  [ use_hardening=$enableval ] ,
+  [使用硬化=是]）
+
+AC_ARG_ENABLE （[减少出口]，
+  [ AS_HELP_STRING ( [ --enable-reduce-exports ] ,
+  [尝试减少生成的可执行文件中的导出符号（默认为否）] ) ] ,
+  [ use_reduce_exports=$enableval ] ,
+  [ use_reduce_exports=no ] )
+
+AC_ARG_ENABLE ( [缓存] ,
+  [ AS_HELP_STRING ( [ --disable-ccache ] ,
+  [不要使用 ccache 进行构建（如果找到则默认使用）] ) ] ,
+  [ use_ccache=$enableval ] ,
+  [ use_ccache=auto ] )
+
+AC_ARG_ENABLE ( [ lcov ] ,
+  [ AS_HELP_STRING ( [ --enable-lcov ] ,
+  [启用 lcov 测试（默认为否）] ) ] ,
+  [ use_lcov=yes ] ,
+  [ use_lcov=否] )
+
+AC_ARG_ENABLE ( [ glibc-back-compat ] ,
+  [ AS_HELP_STRING ( [ --enable-glibc-back-compat ] ,
+  [启用与 glibc 的向后兼容性] ) ] ,
+  [ use_glibc_compat=$enableval ] ,
+  [ use_glibc_compat=no ] )
+
+AC_ARG_WITH ( [系统单值] ,
+  [ AS_HELP_STRING ( [ --with-system-univalue ] ,
+  [使用系统 UniValue 构建（默认为否）] ) ] ,
+  [ system_univalue=$withval ] ,
+  [系统单值=否]
+)
+AC_ARG_ENABLE ( [ zmq ] ,
+  [ AS_HELP_STRING ( [ --disable-zmq ] ,
+  [禁用 ZMQ 通知] ) ] ,
+  [ use_zmq=$enableval ] ,
+  [ use_zmq=yes ] )
+
+AC_ARG_WITH （[ protoc-bindir ]，[ AS_HELP_STRING （[ --with-protoc-bindir=BIN_DIR ]，[指定协议 bin 路径]）]，[ protoc_bin_path=$withval ]，[ ]）
+
+#启用调试
+AC_ARG_ENABLE （[调试]，
+    [ AS_HELP_STRING ( [ --enable-debug ] ,
+                    [使用调试编译器标志和宏（默认为否）] ) ] ,
+    [ enable_debug=$enableval ] ,
+    [启用_调试=否]）
+
+AC_LANG_PUSH （[ C++ ]）
+AX_CHECK_COMPILE_FLAG ( [ -Werror ] , [ CXXFLAG_WERROR="-Werror" ] , [ CXXFLAG_WERROR="" ] )
+
+如果测试 "x$enable_debug" = xyes; 然后
+    CPPFLAGS="$CPPFLAGS -DDEBUG -DDEBUG_LOCKORDER"
+    如果测试“x$GCC”=xyes；然后
+        CFLAGS="$CFLAGS -g3 -O0"
+    菲
+
+    如果测试 "x$GXX" = xyes; 然后
+        CXXFLAGS="$CXXFLAGS -g3 -O0"
+    菲
+菲
+
+如果测试“x$CXXFLAGS_overridden”=“xno”；然后
+  AX_CHECK_COMPILE_FLAG ( [ -Wall ] , [ CXXFLAGS="$CXXFLAGS -Wall" ] ,, [ [ $CXXFLAG_WERROR ] ] )
+  AX_CHECK_COMPILE_FLAG ( [ -Wextra ] , [ CXXFLAGS="$CXXFLAGS -Wextra" ] ,, [ [ $CXXFLAG_WERROR ] ] )
+  AX_CHECK_COMPILE_FLAG ( [ -Wformat ] , [ CXXFLAGS="$CXXFLAGS -Wformat" ] ,, [ [ $CXXFLAG_WERROR ] ] )
+  AX_CHECK_COMPILE_FLAG ( [ -Wformat-security ] , [ CXXFLAGS="$CXXFLAGS -Wformat-security" ] ,, [ [ $CXXFLAG_WERROR ] ] )
+
+  # # 一些编译器 (gcc) 忽略未知的 -Wno-* 选项，但警告所有
+  # # 未知选项，如果产生任何其他警告。测试 -Wfoo 案例，以及
+  # # 如果可行，设置 -Wno-foo 大小写。
+  AX_CHECK_COMPILE_FLAG ( [ -Wunused-parameter ] , [ CXXFLAGS="$CXXFLAGS -Wno-unused-parameter" ] ,, [ [ $CXXFLAG_WERROR ] ] )
+  AX_CHECK_COMPILE_FLAG ( [ -Wself-assign ] , [ CXXFLAGS="$CXXFLAGS -Wno-self-assign" ] ,, [ [ $CXXFLAG_WERROR ] ] )
+  AX_CHECK_COMPILE_FLAG ( [ -Wunused-local-typedef ] , [ CXXFLAGS="$CXXFLAGS -Wno-unused-local-typedef" ] ,, [ [ $CXXFLAG_WERROR ] ] )
+  AX_CHECK_COMPILE_FLAG ( [ -Wdeprecated-register ] , [ CXXFLAGS="$CXXFLAGS -Wno-deprecated-register" ] ,, [ [ $CXXFLAG_WERROR ] ] )
+菲
+CPPFLAGS="$CPPFLAGS -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS"
+
+AC_ARG_WITH （[实用程序]，
+  [ AS_HELP_STRING ( [ --with-utils ] ,
+  [建立 bitcoin-cli bitcoin-tx (default=yes) ] ) ] ,
+  [ build_bitcoin_utils=$withval ] ,
+  [ build_bitcoin_utils=yes ] )
+
+AC_ARG_WITH ( [库] ,
+  [ AS_HELP_STRING ( [ --with-libs ] ,
+  [构建库（默认=是）]）]，
+  [ build_bitcoin_libs=$withval ] ,
+  [ build_bitcoin_libs=yes ] )
+
+AC_ARG_WITH （[守护进程]，
+  [ AS_HELP_STRING ( [ --with-daemon ] ,
+  [构建bitcoind守护进程（默认=是）]）]，
+  [ build_bitcoind=$withval ] ,
+  [ build_bitcoind=yes ] )
+
+使用_pkgconfig=是
+案例$主机在
+  *明威*)
+
+     # pkgconfig 对 MinGW 弊大于利
+     use_pkgconfig=否
+
+     TARGET_OS=windows
+     AC_CHECK_LIB （[ mingwthrd ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ kernel32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ user32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ gdi32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ comdlg32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ winspool ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ winmm ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ shell32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ comctl32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ ole32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ oleaut32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ uuid ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ rpcrt4 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ advapi32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ ws2_32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ mswsock ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ shlwapi ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ iphlpapi ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+     AC_CHECK_LIB （[ crypt32 ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+
+     # -static 由 libtool 解释，它有不同的含义。
+     #在 libtool-speak 中，它是 -all-static。
+     AX_CHECK_LINK_FLAG ( [ [ -static ] ] , [ LIBTOOL_APP_LDFLAGS="$LIBTOOL_APP_LDFLAGS -all-static" ] )
+
+     AC_PATH_PROG （[ MAKENSIS ]，[ makensis ]，无）
+     如果测试 x$MAKENSIS = xnone；然后
+       AC_MSG_WARN （ “未找到makensis  。无法创建安装程序。” ）    
+     菲
+
+     AC_PATH_TOOL （WINDRES，windres，无）
+     如果测试 x$WINDRES = xnone；然后
+       AC_MSG_ERROR （ “未找到windres ”  ） 
+     菲
+
+     CPPFLAGS="$CPPFLAGS -D_MT -DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB"
+     LEVELDB_TARGET_FLAGS="-DOS_WINDOWS"
+     如果测试“x$CXXFLAGS_overridden”=“xno”；然后
+       CXXFLAGS="$CXXFLAGS -w"
+     菲
+     案例$主机在
+       i?86-*) WINDOWS_BITS=32 ;;
+       x86_64-*) WINDOWS_BITS=64 ;;
+       *) AC_MSG_ERROR （“无法 确定 安装程序 的win32/win64  ” ）；； 
+     esac
+     AC_SUBST ( WINDOWS_BITS )
+
+     dnl libtool 坚持添加 -nostdlib 和要链接的对象/库列表。
+     dnl这破坏了我们使用静态 libgcc/libstdc++/libssp 构建 dll 的能力。覆盖
+     在此处删除其命令，删除 predeps/postdeps，并插入 -static。Postdeps是
+     dnl也被覆盖以防止它们稍后插入。
+     dnl这应该只会影响 dll。
+     archive_cmds_CXX="\$CC -shared \$libobjs \$deplibs \$compiler_flags -static -o \$output_objdir/\$soname \${wl}--enable-auto-image-base -Xlinker --out-implib - Xlinker\$lib"
+     postdeps_CXX=
+
+     ;;
+  *达尔文*)
+     TARGET_OS=达尔文
+     LEVELDB_TARGET_FLAGS="-DOS_MACOSX"
+     如果测试 x$cross_compiling != xyes; 然后
+       BUILD_OS=达尔文
+       AC_CHECK_PROG （[端口]，端口，端口）
+       如果测试 x$PORT = xport；然后
+         dnl添加默认的 macports 路径
+         CPPFLAGS="$CPPFLAGS -isystem /opt/local/include"
+         LIBS="$LIBS -L/opt/local/lib"
+         如果测试-d /opt/local/include/db48；然后
+           CPPFLAGS="$CPPFLAGS -I/opt/local/include/db48"
+           LIBS="$LIBS -L/opt/local/lib/db48"
+         菲
+       菲
+
+       AC_CHECK_PROG （[酿造]，酿造，酿造）
+       如果测试 x$BREW = xbrew；然后
+         dnl这些 Homebrew 包可能是 keg-only，这意味着它们不会被发现
+         dnl在预期的路径中，因为它们可能与系统文件冲突。问
+         dnl Homebrew 每个所在的位置，然后相应地调整路径。
+         dnl即使功能被禁用，添加这些路径也是安全的
+         dnl用户（例如--without-wallet 或--without-gui）。
+
+         openssl_prefix=`$BREW --prefix openssl 2>/dev/null`
+         bdb_prefix=`$BREW --prefix berkeley-db4 2>/dev/null`
+         qt5_prefix=`$BREW --prefix qt5 2>/dev/null`
+         如果测试 x$openssl_prefix != x; 然后
+           PKG_CONFIG_PATH="$openssl_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
+           导出 PKG_CONFIG_PATH
+         菲
+         如果测试 x$bdb_prefix != x; 然后
+           CPPFLAGS="$CPPFLAGS -I$bdb_prefix/include"
+           LIBS="$LIBS -L$bdb_prefix/lib"
+         菲
+         如果测试 x$qt5_prefix != x; 然后
+           PKG_CONFIG_PATH="$qt5_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
+           导出 PKG_CONFIG_PATH
+         菲
+       菲
+     别的
+       案例 $build_os 在
+         *达尔文*)
+           BUILD_OS=达尔文
+           ;;
+         *)
+           AC_PATH_TOOL （[ INSTALLNAMETOOL ]，[ install_name_tool ]，install_name_tool ）
+           AC_PATH_TOOL （[ OTOOL ]，[ otool ]，otool ）
+           AC_PATH_PROGS （[ GENISOIMAGE ]，[ genisoimage mkisofs ]，genisoimage ）
+           AC_PATH_PROGS ( [ RSVG_CONVERT ] , [ rsvg-convert rsvg ] , rsvg-convert )
+           AC_PATH_PROGS （[ IMAGEMAGICK_CONVERT ]，[转换]，转换）
+           AC_PATH_PROGS （[ TIFFCP ]，[ tiffcp ]，tiffcp ）
+
+           dnl libtool 将尝试剥离静态库，这是一个问题
+           dnl cross-builds 因为 strip 试图调用一个硬编码的 ld，
+           路径中可能不存在的dnl 。剥离 .a 不是
+           dnl是必需的，所以只需禁用它。
+           old_striplib=
+           ;;
+       esac
+     菲
+
+     AX_CHECK_LINK_FLAG ( [ [ -Wl,-headerpad_max_install_names ] ] , [ LDFLAGS="$LDFLAGS -Wl,-headerpad_max_install_names" ] )
+     CPPFLAGS="$CPPFLAGS -DMAC_OSX"
+     OBJCXXFLAGS="$CXXFLAGS"
+     ;;
+   *Linux*)
+     TARGET_OS=Linux
+     LEVELDB_TARGET_FLAGS="-DOS_LINUX"
+     ;;
+   *免费*)
+     LEVELDB_TARGET_FLAGS="-DOS_FREEBSD"
+     ;;
+   *开放系统*)
+     LEVELDB_TARGET_FLAGS="-DOS_OPENBSD"
+     ;;
+   *)
+     OTHER_OS=`echo ${host_os} | awk '{print toupper($0)}'`
+     AC_MSG_WARN ( [猜测 LevelDB 操作系统为 OS_${OTHER_OS}，请检查这是否正确，如果不正确，请添加一个条目到 configure.ac。] )
+     LEVELDB_TARGET_FLAGS="-DOS_${OTHER_OS}"
+     ;;
+esac
+
+如果测试 x$use_pkgconfig = xyes；然后
+  m4_ifndef ( [ PKG_PROG_PKG_CONFIG ] , [ AC_MSG_ERROR (未找到PKG_PROG_PKG_CONFIG 宏 。请安装pkg-config并重新运行autogen.sh。) ]        )
+  m4_ifdef ( [ PKG_PROG_PKG_CONFIG ] , [
+  PKG_PROG_PKG_CONFIG
+  如果测试 x"$PKG_CONFIG" = "x"；然后
+    AC_MSG_ERROR （未找到pkg-config  。） 
+  菲
+  ] )
+菲
+
+如果测试 x$use_comparison_tool != xno; 然后
+  AC_SUBST ( JAVA_COMPARISON_TOOL , $use_comparison_tool )
+菲
+
+如果测试 x$use_comparison_tool_reorg_tests != xno; 然后
+  如果测试 x$use_comparison_tool = x; 然后
+    AC_MSG_ERROR （“比较 工具 重组 测试 但未 指定比较 工具 ” ）  
+  菲
+  AC_SUBST ( COMPARISON_TOOL_REORG_TESTS , 1 )
+别的
+  AC_SUBST ( COMPARISON_TOOL_REORG_TESTS , 0 )
+菲
+
+如果测试 x$use_extended_rpc_tests != xno; 然后
+  AC_SUBST （EXTENDED_RPC_TESTS，-扩展）
+菲
+
+如果测试 x$use_lcov = xyes；然后
+  如果测试 x$LCOV = x；然后
+    AC_MSG_ERROR （ “已请求lcov 测试 但未找到lcov ” ）    
+  菲
+  如果测试 x$GCOV = x；然后
+    AC_MSG_ERROR （ “已请求lcov 测试 但未找到gcov ” ）    
+  菲
+  如果测试 x$JAVA = x; 然后
+    AC_MSG_ERROR （ “已请求lcov 测试 但未找到java ” ）    
+  菲
+  如果测试 x$PYTHON = x; 然后
+    AC_MSG_ERROR （ “已请求lcov 测试 但未找到python ” ）    
+  菲
+  如果测试 x$GENHTML = x; 然后
+    AC_MSG_ERROR （ “已请求lcov 测试 但未找到genhtml ” ）    
+  菲
+  如果测试 x$use_comparison_tool = x; 然后
+    AC_MSG_ERROR （“请求lcov 测试 但未指定比较工具” ）      
+  菲
+  LCOV="$LCOV --gcov-tool=$GCOV"
+  AX_CHECK_COMPILE_FLAG ( [ --coverage ] , [ CXXFLAGS="$CXXFLAGS --coverage" ] ,
+    [ AC_MSG_ERROR （ “已请求lcov 测试       ，但覆盖标志不起作用” ）] ）
+菲
+
+dnl检查字节顺序
+AC_C_BIGENDIAN
+
+dnl检查 pthread 编译/链接要求
+AX_PTHREAD
+
+#以下宏将向 bitcoin-config.h 添加必要的定义，但是
+#它们还需要传递给任何子项目。拉出结果
+#缓存并将它们添加到 CPPFLAGS。
+AC_SYS_LARGEFILE
+#检测 strerror_r 的 POSIX 或 GNU 变体
+AC_FUNC_STRERROR_R
+
+如果测试 x$ac_cv_sys_file_offset_bits != x &&
+   测试 x$ac_cv_sys_file_offset_bits != xno &&
+   测试 x$ac_cv_sys_file_offset_bits != xunknown; 然后
+  CPPFLAGS="$CPPFLAGS -D_FILE_OFFSET_BITS=$ac_cv_sys_file_offset_bits"
+菲
+
+如果测试 x$ac_cv_sys_large_files != x &&
+   测试 x$ac_cv_sys_large_files != xno &&
+   测试 x$ac_cv_sys_large_files != xunknown; 然后
+  CPPFLAGS="$CPPFLAGS -D_LARGE_FILES=$ac_cv_sys_large_files"
+菲
+
+AX_CHECK_LINK_FLAG ( [ [ -Wl,--large-address-aware ] ] , [ LDFLAGS="$LDFLAGS -Wl,--large-address-aware" ] )
+
+AX_GCC_FUNC_ATTRIBUTE （[可见性]）
+AX_GCC_FUNC_ATTRIBUTE ( [ dllexport ] )
+AX_GCC_FUNC_ATTRIBUTE ( [ dllimport ] )
+
+如果测试 x$use_glibc_compat != xno; 然后
+
+  # glibc 在 2.17 中吸收了 clock_gettime。librt（它以前的位置）可以安全链接
+  #无论如何为了后兼容。
+  AC_CHECK_LIB （[ rt ]，[ clock_gettime ]，AC_MSG_ERROR （缺少库 ））
+
+  # __fdelt_chk 的参数和返回类型已从 long unsigned int 更改为 long int。
+  #查看这里出现的是哪一个。
+  AC_MSG_CHECKING （__fdelt_chk 类型）
+  AC_COMPILE_IFELSE ( [ AC_LANG_PROGRAM ( [ [ #ifdef _FORTIFY_SOURCE
+                    #undef _FORTIFY_SOURCE
+                  ＃万一
+                  #define _FORTIFY_SOURCE 2
+                  #include <sys/select.h>
+     extern "C" long unsigned int __fdelt_warn(long unsigned int); ] ] , [ [ ] ] ) ] ,
+    [ fdelt_type="long unsigned int" ] ,
+    [ fdelt_type="long int" ] )
+  AC_MSG_RESULT ( $fdelt_type )
+  AC_DEFINE_UNQUOTED ( FDELT_TYPE , $fdelt_type , [ __fdelt_chk 的参数和返回值类型] )
+别的
+  AC_SEARCH_LIBS ( [ clock_gettime ] , [ rt ] )
+菲
+
+如果测试 x$TARGET_OS != xwindows; 然后
+  #所有 Windows 代码都是 PIC，强制打开它只会添加无用的编译警告
+  AX_CHECK_COMPILE_FLAG ( [ -fPIC ] , [ PIC_FLAGS="-fPIC" ] )
+菲
+
+如果测试 x$use_hardening != xno; 然后
+  AX_CHECK_COMPILE_FLAG ( [ -Wstack-protector ] , [ HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -Wstack-protector" ] )
+  AX_CHECK_COMPILE_FLAG ( [ -fstack-protector-all ] , [ HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -fstack-protector-all" ] )
+
+  AX_CHECK_PREPROC_FLAG ( [ -D_FORTIFY_SOURCE=2 ] , [
+    AX_CHECK_PREPROC_FLAG ( [ -U_FORTIFY_SOURCE ] , [
+      HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -U_FORTIFY_SOURCE"
+    ] )
+    HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -D_FORTIFY_SOURCE=2"
+  ] )
+
+  AX_CHECK_LINK_FLAG ( [ [ -Wl,--dynamicbase ] ] , [ HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,--dynamicbase" ] )
+  AX_CHECK_LINK_FLAG ( [ [ -Wl,--nxcompat ] ] , [ HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,--nxcompat" ] )
+  AX_CHECK_LINK_FLAG ( [ [ -Wl,-z,relro ] ] , [ HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,relro" ] )
+  AX_CHECK_LINK_FLAG ( [ [ -Wl,-z,now ] ] , [ HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,now" ] )
+
+  如果测试 x$TARGET_OS != xwindows; 然后
+    AX_CHECK_COMPILE_FLAG ( [ -fPIE ] , [ PIE_FLAGS="-fPIE" ] )
+    AX_CHECK_LINK_FLAG ( [ [ -pie ] ] , [ HARDENED_LDFLAGS="$HARDENED_LDFLAGS -pie" ] )
+  菲
+
+  案例$主机在
+    *明威*)
+       AC_CHECK_LIB （[ ssp ]，       [ main ]，AC_MSG_ERROR （缺少库 ））
+    ;;
+  esac
+菲
+
+即使检查失败，dnl这个标志也会搞砸非达尔文 gcc。特例吧。
+如果测试 x$TARGET_OS = xdarwin；然后
+  AX_CHECK_LINK_FLAG ( [ [ -Wl,-dead_strip ] ] , [ LDFLAGS="$LDFLAGS -Wl,-dead_strip" ] )
+菲
+
+AC_CHECK_HEADERS ( [ endian.h sys/endian.h byteswap.h stdio.h stdlib.h unistd.h strings.h sys/types.h sys/stat.h sys/select.h sys/prctl.h ] )
+
+AC_CHECK_DECLS ( [ strnlen ] )
+
+AC_CHECK_DECLS ( [ le16toh, le32toh, le64toh, htole16, htole32, htole64, be16toh, be32toh, be64toh, htobe16, htobe32, htobe64 ] ,,,
+		[ #if HAVE_ENDIAN_H
+                 #include <endian.h>
+                 #elif HAVE_SYS_ENDIAN_H
+                 #include <sys/endian.h>
+                 #endif ] )
+
+AC_CHECK_DECLS ( [ bswap_16, bswap_32, bswap_64 ] ,,,
+		[ #if HAVE_BYTESWAP_H
+                 #include <字节交换.h>
+                 #endif ] )
+
+dnl检查 MSG_NOSIGNAL
+AC_MSG_CHECKING （对于 MSG_NOSIGNAL ）
+AC_COMPILE_IFELSE ( [ AC_LANG_PROGRAM ( [ [ #include <sys/socket.h> ] ] ,
+ [ [ int f = MSG_NOSIGNAL; ] ] ) ] ,
+ [  AC_MSG_RESULT （是）；AC_DEFINE ( HAVE_MSG_NOSIGNAL , 1 , [如果你有 MSG_NOSIGNAL 就定义这个符号] )  ] ,
+ [  AC_MSG_RESULT （否）]
+)
+
+AC_MSG_CHECKING （[可见性属性]）
+AC_LINK_IFELSE ( [ AC_LANG_SOURCE ( [
+  int foo_def(void) __attribute__((visibility("default")));
+  诠释主要（）{}
+  ] ) ] ,
+  [
+    AC_DEFINE ( HAVE_VISIBILITY_ATTRIBUTE , 1 , [定义是否支持可见性属性。] )
+    AC_MSG_RESULT （是）
+  ] ,
+  [
+    AC_MSG_RESULT （否）
+    如果测试 x$use_reduce_exports = xyes；然后
+      AC_MSG_ERROR （[找不到有效的可见性属性。使用 --disable-reduce-exports。]）
+    菲
+  ]
+)
+
+如果测试 x$use_reduce_exports = xyes；然后
+  AX_CHECK_COMPILE_FLAG ( [ -fvisibility=hidden ] , [ RE_CXXFLAGS="-fvisibility=hidden" ] ,
+  [ AC_MSG_ERROR （[无法设置默认符号可见性。使用--disable-reduce-exports。]）]）
+菲
+
+LEVELDB_CPPFLAGS=
+LIBLEVELDB=
+LIBMEMENV=
+AM_CONDITIONAL（[嵌入式级别]，[真]）
+AC_SUBST ( LEVELDB_CPPFLAGS )
+AC_SUBST （LIBLEVELDB ）
+AC_SUBST ( LIBMEMENV )
+
+如果测试 x$enable_wallet != xno; 然后
+    dnl仅在钱包启用时检查 libdb_cxx
+    比特币_FIND_BDB48
+菲
+
+dnl检查 libminiupnpc（可选）
+如果测试 x$use_upnp != xno; 然后
+  AC_CHECK_HEADERS (
+    [ miniupnpc/miniwget.h miniupnpc/miniupnpc.h miniupnpc/upnpcommands.h miniupnpc/upnperrors.h ] ,
+    [ AC_CHECK_LIB ( [ miniupnpc ] , [ main ] , [ MINIUPNPC_LIBS=-lminiupnpc ] , [ have_miniupnpc=no ] ) ] ,
+    [ have_miniupnpc=no ]
+  )
+菲
+
+比特币_QT_INIT
+
+dnl设置 $bitcoin_enable_qt, $bitcoin_enable_qt_test, $bitcoin_enable_qt_dbus
+BITCOIN_QT_CONFIGURE( [ $use_pkgconfig ] , [ qt5 ] )
+
+如果测试 x$build_bitcoin_utils$build_bitcoind$bitcoin_enable_qt$use_tests$use_bench = xnonononono; 然后
+    use_boost=否
+别的
+    use_boost=是
+菲
+
+如果测试 x$use_boost = xyes；然后
+
+dnl所需的最低 Boost 版本
+定义( MINIMUM_REQUIRED_BOOST , 1.47.0 )
+
+dnl检查 boost 库
+AX_BOOST_BASE ( [ MINIMUM_REQUIRED_BOOST ] )
+AX_BOOST_SYSTEM
+AX_BOOST_FILESYSTEM
+AX_BOOST_PROGRAM_OPTIONS
+AX_BOOST_THREAD
+AX_BOOST_CHRONO
+
+
+如果测试 x$use_reduce_exports = xyes；然后
+  AC_MSG_CHECKING （[用于促进减少出口的工作]）
+  TEMP_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$BOOST_CPPFLAGS $CPPFLAGS"
+  AC_PREPROC_IFELSE ( [ AC_LANG_PROGRAM ( [ [
+      @%:@ include <boost/version.hpp>
+    ] ] , [ [
+      #if BOOST_VERSION >= 104900
+      // 一切正常
+      ＃别的
+      # 错误 Boost 版本太旧
+      ＃万一
+    ] ] )],[
+      AC_MSG_RESULT （是）
+    ] , [
+    AC_MSG_ERROR （[已知 boost 版本 < 1.49 会因出口减少而损坏。使用 --disable-reduce-exports。]）
+  ] )
+  CPPFLAGS="$TEMP_CPPFLAGS"
+菲
+菲
+
+如果测试 x$use_reduce_exports = xyes；然后
+    CXXFLAGS="$CXXFLAGS $RE_CXXFLAGS"
+    AX_CHECK_LINK_FLAG ( [ [ -Wl,--exclude-libs,ALL ] ] , [ RELDFLAGS="-Wl,--exclude-libs,ALL" ] )
+菲
+
+如果测试 x$use_tests = xyes；然后
+
+  如果测试 x$HEXDUMP = x; 然后
+    AC_MSG_ERROR （测试需要hexdump  ）_ _   
+  菲
+
+
+  如果测试 x$use_boost = xyes；然后
+
+  AX_BOOST_UNIT_TEST_FRAMEWORK
+
+  dnl判断是否需要-DBOOST_TEST_DYN_LINK
+  AC_MSG_CHECKING （[用于动态链接升压测试]）
+  TEMP_LIBS="$LIBS"
+  LIBS="$LIBS $BOOST_LDFLAGS $BOOST_UNIT_TEST_FRAMEWORK_LIB"
+  TEMP_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
+  AC_LINK_IFELSE ( [ AC_LANG_SOURCE ( [
+       #define BOOST_TEST_DYN_LINK
+       #define BOOST_TEST_MAIN
+        #include <boost/test/unit_test.hpp>
+       ] ) ] ,
+    [ AC_MSG_RESULT （是）]
+    [ TESTDEFS="$TESTDEFS -DBOOST_TEST_DYN_LINK" ] ,
+    [ AC_MSG_RESULT （否）]）
+  LIBS="$TEMP_LIBS"
+  CPPFLAGS="$TEMP_CPPFLAGS"
+
+  菲
+菲
+
+如果测试 x$use_boost = xyes；然后
+
+BOOST_LIBS="$BOOST_LDFLAGS $BOOST_SYSTEM_LIB $BOOST_FILESYSTEM_LIB $BOOST_PROGRAM_OPTIONS_LIB $BOOST_THREAD_LIB $BOOST_CHRONO_LIB"
+
+
+dnl如果 boost（1.57 之前）是在没有 c++11 的情况下构建的，它会模拟作用域枚举
+dnl使用 c++98 构造。不幸的是，这个实现细节泄露到了
+dnl能力。这在 1.57 中已修复。
+
+dnl当使用 c++11 针对已安装的版本进行构建时，标头会出现
+dnl在本机 c++11 作用域枚举支持上启用它，但是它将失败
+dl链接。这可以通过禁用 c++11 作用域枚举来解决，如果链接将
+dnl失败。
+dnl BOOST_NO_SCOPED_ENUMS 在 1.51 中更改为 BOOST_NO_CXX11_SCOPED_ENUMS。
+
+TEMP_LIBS="$LIBS"
+LIBS="$BOOST_LIBS $LIBS"
+TEMP_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
+AC_MSG_CHECKING （[对于不匹配的 boost c++11 作用域枚举]）
+AC_LINK_IFELSE ( [ AC_LANG_PROGRAM ( [ [
+  #include "boost/config.hpp"
+  #include "boost/version.hpp"
+  #if !defined(BOOST_NO_SCOPED_ENUMS) && !defined(BOOST_NO_CXX11_SCOPED_ENUMS) && BOOST_VERSION < 105700
+  #define BOOST_NO_SCOPED_ENUMS
+  #define BOOST_NO_CXX11_SCOPED_ENUMS
+  #定义检查
+  ＃万一
+  #include "boost/filesystem.hpp"
+  ] ] , [ [
+  #if定义（检查）
+    boost::filesystem::copy_file("foo", "bar");
+  ＃别的
+    呛;
+  ＃万一
+  ] ] )],
+  [ AC_MSG_RESULT （不匹配）；BOOST_CPPFLAGS="$BOOST_CPPFLAGS -DBOOST_NO_SCOPED_ENUMS -DBOOST_NO_CXX11_SCOPED_ENUMS" ] , [ AC_MSG_RESULT ( ok ) ] )
+LIBS="$TEMP_LIBS"
+CPPFLAGS="$TEMP_CPPFLAGS"
+
+但是， dnl Boost >= 1.50 使用 sleep_for 而不是现在已弃用的 sleep
+dnl在 nanosleep 的支持下，它从 1.50 降到了 1.52。使用 sleep_for 如果
+dnl有可用的工作版本，否则就回去睡觉。睡眠被移除
+1.56 之后的dnl。
+dnl如果两者都不可用，则中止。
+TEMP_LIBS="$LIBS"
+LIBS="$BOOST_LIBS $LIBS"
+TEMP_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
+AC_LINK_IFELSE ( [ AC_LANG_PROGRAM ( [ [
+  #include <boost/thread/thread.hpp>
+  #include <boost/version.hpp>
+  ] ] , [ [
+  #if BOOST_VERSION >= 105000 && (!defined(BOOST_HAS_NANOSLEEP) || BOOST_VERSION >= 105200)
+      boost::this_thread::sleep_for(boost::chrono::milliseconds(0));
+  ＃别的
+   让我窒息
+  ＃万一
+  ] ] )],
+  [ boost_sleep=是的；
+     AC_DEFINE ( HAVE_WORKING_BOOST_SLEEP_FOR , 1 , [如果 boost sleep_for 有效则定义此符号] ) ] ,
+  [ boost_sleep=否]）
+LIBS="$TEMP_LIBS"
+CPPFLAGS="$TEMP_CPPFLAGS"
+
+如果测试 x$boost_sleep != xyes; 然后
+TEMP_LIBS="$LIBS"
+LIBS="$BOOST_LIBS $LIBS"
+TEMP_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
+AC_LINK_IFELSE ( [ AC_LANG_PROGRAM ( [ [
+  #include <boost/version.hpp>
+  #include <boost/thread.hpp>
+  #include <boost/date_time/posix_time/posix_time_types.hpp>
+  ] ] , [ [
+  #if BOOST_VERSION <= 105600
+      boost::this_thread::sleep(boost::posix_time::milliseconds(0));
+  ＃别的
+   让我窒息
+  ＃万一
+  ] ] )],
+  [ boost_sleep=是的；AC_DEFINE ( HAVE_WORKING_BOOST_SLEEP , 1 , [如果 boost sleep 有效则定义此符号] ) ] ,
+  [ boost_sleep=否]）
+LIBS="$TEMP_LIBS"
+CPPFLAGS="$TEMP_CPPFLAGS"
+菲
+
+如果测试 x$boost_sleep != xyes; 然后
+  AC_MSG_ERROR （未找到 有效的 提升 睡眠 实现 。）
+菲
+
+菲
+
+如果测试 x$use_pkgconfig = xyes；然后
+  : DNL
+  m4_ifdef (
+    [ PKG_CHECK_MODULES ] ,
+    [
+      PKG_CHECK_MODULES（[ SSL ]，[ libssl ]，，[ AC_MSG_ERROR （未找到openssl   。）] ）
+      PKG_CHECK_MODULES( [ CRYPTO ] , [ libcrypto ] ,, [ AC_MSG_ERROR ( libcrypto  未 找到。) ] )
+      BITCOIN_QT_CHECK( [ PKG_CHECK_MODULES( [ PROTOBUF ] , [ protobuf ] , [ have_protobuf=yes ] , [ BITCOIN_QT_FAIL(找不到 libprotobuf) ] ) ] )
+      如果测试 x$use_qr != xno; 然后
+        BITCOIN_QT_CHECK( [ PKG_CHECK_MODULES( [ QR ] , [ libqrencode ] , [ have_qrencode=yes ] , [ have_qrencode=no ] ) ] )
+      菲
+      如果测试 x$build_bitcoin_utils$build_bitcoind$bitcoin_enable_qt$use_tests != xnononono; 然后
+        PKG_CHECK_MODULES( [事件] , [ libevent ] ,, [ AC_MSG_ERROR ( libevent 未 找到。) ] )
+        如果测试 x$TARGET_OS != xwindows; 然后
+          PKG_CHECK_MODULES( [ EVENT_PTHREADS ] , [ libevent_pthreads ] ,, [ AC_MSG_ERROR ( libevent_pthreads  not  found. ) ] )
+        菲
+      菲
+      如果测试“x$use_zmq”=“xyes”；然后
+        PKG_CHECK_MODULES( [ ZMQ ] , [ libzmq >= 4 ] ,
+          [ AC_DEFINE ( [ ENABLE_ZMQ ] , [ 1 ] , [定义为 1 以启用 ZMQ 功能] ) ] ,
+          [ AC_DEFINE ( [ ENABLE_ZMQ ] , [ 0 ] , [定义为 1 启用 ZMQ 功能] )
+           AC_MSG_WARN （[未找到 libzmq 版本 4.x 或更高版本，正在禁用]）
+           使用_zmq=否]）
+      别的
+          AC_DEFINE_UNQUOTED ( [ ENABLE_ZMQ ] , [ 0 ] , [定义为 1 以启用 ZMQ 功能] )
+      菲
+    ]
+  )
+别的
+  AC_CHECK_HEADER （[ openssl/crypto.h ]、AC_MSG_ERROR （缺少libcrypto 标头 ））
+  AC_CHECK_LIB （[ crypto ]，       [ main ]，CRYPTO_LIBS=-lcrypto，AC_MSG_ERROR （缺少libcrypto  ））
+
+  AC_CHECK_HEADER （[ openssl/ssl.h ]，，AC_MSG_ERROR （缺少libssl 标头 ），）
+  AC_CHECK_LIB （[ ssl ]，          [ main ]，SSL_LIBS=-lssl，AC_MSG_ERROR （缺少libssl  ））
+
+  如果测试 x$build_bitcoin_utils$build_bitcoind$bitcoin_enable_qt$use_tests != xnononono; 然后
+    AC_CHECK_HEADER ( [ event2/event.h ] ,, AC_MSG_ERROR ( libevent  headers  missing ) , )
+    AC_CHECK_LIB （[事件]，[主要]，EVENT_LIBS=-levent，AC_MSG_ERROR （缺少libevent  ））
+    如果测试 x$TARGET_OS != xwindows; 然后
+      AC_CHECK_LIB （[ event_pthreads ]，[ main ]，EVENT_PTHREADS_LIBS=-levent_pthreads，AC_MSG_ERROR （缺少libevent_pthreads  ））
+    菲
+  菲
+
+  如果测试“x$use_zmq”=“xyes”；然后
+     AC_CHECK_HEADER ( [ zmq.h ] ,
+       [ AC_DEFINE ( [ ENABLE_ZMQ ] , [ 1 ] , [定义为 1 以启用 ZMQ 功能] ) ] ,
+       [ AC_MSG_WARN （[未找到 zmq.h，禁用 zmq 支持]）
+        使用_zmq=否
+        AC_DEFINE ( [ ENABLE_ZMQ ] , [ 0 ] , [定义为 1 以启用 ZMQ 功能] ) ] )
+     AC_CHECK_LIB ( [ zmq ] , [ zmq_ctx_shutdown ] , ZMQ_LIBS=-lzmq ,
+       [ AC_MSG_WARN ( [ libzmq >= 4.0 not found, disabling zmq support ] )
+        使用_zmq=否
+        AC_DEFINE ( [ ENABLE_ZMQ ] , [ 0 ] , [定义为 1 以启用 ZMQ 功能] ) ] )
+  别的
+    AC_DEFINE_UNQUOTED ( [ ENABLE_ZMQ ] , [ 0 ] , [定义为 1 以启用 ZMQ 功能] )
+  菲
+
+  BITCOIN_QT_CHECK( AC_CHECK_LIB ( [ protobuf ] , [ main ] , [ PROTOBUF_LIBS =-lprotobuf ] , BITCOIN_QT_FAIL (找不到libprotobuf  )) ) 
+  如果测试 x$use_qr != xno; 然后
+    BITCOIN_QT_CHECK( [ AC_CHECK_LIB ( [ qrencode ] , [ main ] , [ QR_LIBS=-lqrencode ] , [ have_qrencode=no ] ) ] )
+    BITCOIN_QT_CHECK( [ AC_CHECK_HEADER ( [ qrencode.h ] ,, have_qrencode=no ) ] )
+  菲
+菲
+
+dnl单值检查
+
+need_bundled_univalue=是
+
+如果测试 x$build_bitcoin_utils$build_bitcoind$bitcoin_enable_qt$use_tests$use_bench = xnonononono; 然后
+  need_bundled_univalue=否
+别的
+
+如果测试 x$system_univalue != xno ; 然后
+  found_univalue=无
+  如果测试 x$use_pkgconfig = xyes；然后
+    ：#NOP _
+    m4_ifdef (
+      [ PKG_CHECK_MODULES ] ,
+      [
+        PKG_CHECK_MODULES( [ UNIVALUE ] , [ libunivalue ] , [ found_univalue=yes ] , [ true ] )
+      ]
+    )
+  别的
+    AC_CHECK_HEADER ( [ univalue.h ] , [
+      AC_CHECK_LIB （[单值]，   [主]，[
+        UNIVALUE_LIBS=-lunivalue
+        found_univalue=是
+      ]， [真]）
+    ]， [真]）
+  菲
+
+  如果测试 x$found_univalue = xyes ; 然后
+    system_univalue=是
+    need_bundled_univalue=否
+  elif 测试 x$system_univalue = xyes ; 然后
+    AC_MSG_ERROR （[未找到单值]）
+  别的
+    system_univalue=否
+  菲
+菲
+
+如果测试 x$need_bundled_univalue = xyes ; 然后
+  UNIVALUE_CFLAGS='-I$(srcdir)/univalue/include'
+  UNIVALUE_LIBS='univalue/libunivalue.la'
+菲
+
+菲
+
+AM_CONDITIONAL( [ EMBEDDED_UNIVALUE ] , [测试 x$need_bundled_univalue = xyes ] )
+AC_SUBST ( UNIVALUE_CFLAGS )
+AC_SUBST ( UNIVALUE_LIBS )
+
+BITCOIN_QT_PATH_PROGS( [ PROTOC ] , [ protoc ] ,$protoc_bin_path)
+
+AC_MSG_CHECKING ( [是否构建bitcoind ] )
+AM_CONDITIONAL( [ BUILD_BITCOIND ] , [测试 x$build_bitcoind = xyes ] )
+AC_MSG_RESULT ( $build_bitcoind )
+
+AC_MSG_CHECKING ( [是否构​​建 utils (bitcoin-cli bitcoin-tx) ] )
+AM_CONDITIONAL( [ BUILD_BITCOIN_UTILS ] , [测试 x$build_bitcoin_utils = xyes ] )
+AC_MSG_RESULT ( $build_bitcoin_utils )
+
+AC_MSG_CHECKING ( [是否建库] )
+AM_CONDITIONAL( [ BUILD_BITCOIN_LIBS ] , [测试 x$build_bitcoin_libs = xyes ] )
+如果测试 x$build_bitcoin_libs = xyes；然后
+  AC_DEFINE ( HAVE_CONSENSUS_LIB , 1 , [如果已构建共识库则定义此符号] )
+  AC_CONFIG_FILES ( [ libbitcoinconsensus.pc:libbitcoinconsensus.pc.in ] )
+菲
+AC_MSG_RESULT ( $build_bitcoin_libs )
+
+AC_LANG_POP
+
+如果测试“x$use_ccache”！=“xno”；然后
+  AC_MSG_CHECKING （如果 应该使用ccache  ）_  
+  如果测试 x$CCACHE = x; 然后
+    如果测试“x$use_ccache”=“xyes”；然后
+      AC_MSG_ERROR （[未找到缓存。]）；
+    别的
+      use_ccache=否
+    菲
+  别的
+    使用缓存=是
+    CC="$ac_cv_path_CCACHE $CC"
+    CXX="$ac_cv_path_CCACHE $CXX"
+  菲
+  AC_MSG_RESULT ( $use_ccache )
+菲
+如果测试“x$use_ccache”=“xyes”；然后
+    AX_CHECK_PREPROC_FLAG ( [ -Qunused-arguments ] , [ CPPFLAGS="-Qunused-arguments $CPPFLAGS" ] )
+菲
+
+dnl启用钱包
+AC_MSG_CHECKING （[如果钱包应该启用]）
+如果测试 x$enable_wallet != xno; 然后
+  AC_MSG_RESULT （是）
+  AC_DEFINE_UNQUOTED ( [ ENABLE_WALLET ] , [ 1 ] , [定义为1启用钱包功能] )
+
+别的
+  AC_MSG_RESULT （否）
+菲
+
+dnl启用 upnp 支持
+AC_MSG_CHECKING （[是否构建支持 UPnP ]）
+如果测试 x$have_miniupnpc = xno; 然后
+  如果测试 x$use_upnp = xyes；然后
+     AC_MSG_ERROR （ “已请求UPnP 但无法构建。使用-- without-miniupnpc” ）      
+  菲
+  AC_MSG_RESULT （否）
+别的
+  如果测试 x$use_upnp != xno; 然后
+    AC_MSG_RESULT （是）
+    AC_MSG_CHECKING （[是否默认启用 UPnP 构建]）
+    use_upnp=是
+    upnp_setting=0
+    如果测试 x$use_upnp_default != xno; 然后
+      use_upnp_default=是
+      upnp_setting=1
+    菲
+    AC_MSG_RESULT ( $use_upnp_default )
+    AC_DEFINE_UNQUOTED ( [ USE_UPNP ] , [ $upnp_setting ] , [如果未定义则不编译 UPnP 支持，否则值（0 或 1）决定默认状态] )
+    如果测试 x$TARGET_OS = xwindows；然后
+      MINIUPNPC_CPPFLAGS="-DSTATICLIB -DMINIUPNP_STATICLIB"
+    菲
+  别的
+    AC_MSG_RESULT （否）
+  菲
+菲
+
+dnl这些仅在启用 qt 时使用
+BUILD_TEST_QT=""
+如果测试 x$bitcoin_enable_qt != xno; 然后
+  dnl启用 dbus 支持
+  AC_MSG_CHECKING （[是否构建支持 D-Bus 的 GUI ]）
+  如果测试 x$bitcoin_enable_qt_dbus != xno; 然后
+    AC_DEFINE （[ USE_DBUS ]，[ 1 ]，[定义是否应编译 dbus 支持]）
+  菲
+  AC_MSG_RESULT ( $bitcoin_enable_qt_dbus )
+
+  dnl启用 qr 支持
+  AC_MSG_CHECKING （[是否构建支持二维码的 GUI ]）
+  如果测试 x$have_qrencode = xno; 然后
+    如果测试 x$use_qr = xyes；然后
+     AC_MSG_ERROR （ “请求QR 支持 但无法构建。使用-- without-qrencode” ）      
+    菲
+    AC_MSG_RESULT （否）
+  别的
+    如果测试 x$use_qr != xno; 然后
+      AC_MSG_RESULT （是）
+      AC_DEFINE （[ USE_QRCODE ]，[ 1 ]，[定义是否应编译 QR 支持]）
+      使用_qr=是
+    别的
+      AC_MSG_RESULT （否）
+    菲
+  菲
+
+  如果测试 x$XGETTEXT = x; 然后
+    AC_MSG_WARN （“ 更新qt翻译需要 xgettext ” ）    
+  菲
+
+  AC_MSG_CHECKING ( [是否构​​建 test_bitcoin-qt ] )
+  如果测试 x$use_gui_tests$bitcoin_enable_qt_test = xyesyes; 然后
+    AC_MSG_RESULT （[是]）
+    BUILD_TEST_QT="是"
+  别的
+    AC_MSG_RESULT （[否]）
+  菲
+菲
+
+AM_CONDITIONAL( [ ENABLE_ZMQ ] , [测试 "x$use_zmq" = "xyes" ] )
+
+AC_MSG_CHECKING ( [是否构建test_bitcoin ] )
+如果测试 x$use_tests = xyes；然后
+  AC_MSG_RESULT （[是]）
+  BUILD_TEST="是"
+别的
+  AC_MSG_RESULT （[否]）
+  BUILD_TEST=""
+菲
+
+AC_MSG_CHECKING ( [是否减少出口] )
+如果测试 x$use_reduce_exports = xyes；然后
+  AC_MSG_RESULT （[是]）
+别的
+  AC_MSG_RESULT （[否]）
+菲
+
+如果测试 x$build_bitcoin_utils$build_bitcoin_libs$build_bitcoind$bitcoin_enable_qt$use_bench$use_tests = xnononononono; 然后
+  AC_MSG_ERROR ( [没有目标！请至少指定以下之一： --with-utils --with-libs --with-daemon --with-gui --enable-bench 或 --enable-tests ] )
+菲
+
+AM_CONDITIONAL( [ TARGET_DARWIN ] , [测试 x$TARGET_OS = xdarwin ] )
+AM_CONDITIONAL( [ BUILD_DARWIN ] , [测试 x$BUILD_OS = xdarwin ] )
+AM_CONDITIONAL( [ TARGET_WINDOWS ] , [测试 x$TARGET_OS = xwindows ] )
+AM_CONDITIONAL( [ ENABLE_WALLET ] , [测试 x$enable_wallet = xyes ] )
+AM_CONDITIONAL( [ ENABLE_TESTS ] , [测试 x$BUILD_TEST = xyes ] )
+AM_CONDITIONAL( [ ENABLE_QT ] , [测试 x$bitcoin_enable_qt = xyes ] )
+AM_CONDITIONAL( [ ENABLE_QT_TESTS ] , [测试 x$BUILD_TEST_QT = xyes ] )
+AM_CONDITIONAL( [ ENABLE_BENCH ] , [测试 x$use_bench = xyes ] )
+AM_CONDITIONAL( [ USE_QRCODE ] , [测试 x$use_qr = xyes ] )
+AM_CONDITIONAL( [ USE_LCOV ] , [测试 x$use_lcov = xyes ] )
+AM_CONDITIONAL( [ USE_COMPARISON_TOOL ] , [测试 x$use_comparison_tool != xno ] )
+AM_CONDITIONAL( [ USE_COMPARISON_TOOL_REORG_TESTS ] , [测试 x$use_comparison_tool_reorg_test != xno ] )
+AM_CONDITIONAL( [ GLIBC_BACK_COMPAT ] , [测试 x$use_glibc_compat = xyes ] )
+AM_CONDITIONAL( [ HARDEN ] , [测试 x$use_hardening = xyes ] )
+
+AC_DEFINE ( CLIENT_VERSION_MAJOR , _CLIENT_VERSION_MAJOR , [主要版本] )
+AC_DEFINE （CLIENT_VERSION_MINOR，_CLIENT_VERSION_MINOR，[次要版本]）
+AC_DEFINE ( CLIENT_VERSION_REVISION , _CLIENT_VERSION_REVISION , [构建版本] )
+AC_DEFINE ( CLIENT_VERSION_BUILD , _CLIENT_VERSION_BUILD , [版本构建] )
+AC_DEFINE ( CLIENT_VERSION_IS_RELEASE , _CLIENT_VERSION_IS_RELEASE , [版本已发布] )
+AC_DEFINE （COPYRIGHT_YEAR，_COPYRIGHT_YEAR，[版权年份]）
+AC_DEFINE ( COPYRIGHT_HOLDERS , "_COPYRIGHT_HOLDERS" , [ %s 替换前的版权所有者] )
+AC_DEFINE ( COPYRIGHT_HOLDERS_SUBSTITUTION , "_COPYRIGHT_HOLDERS_SUBSTITUTION" , [替换版权所有者字符串中的 %s ] )
+定义（_COPYRIGHT_HOLDERS_FINAL，[ patsubst（_COPYRIGHT_HOLDERS，[ %s ]，[ _COPYRIGHT_HOLDERS_SUBSTITUTION ]）]）
+AC_DEFINE ( COPYRIGHT_HOLDERS_FINAL , "_COPYRIGHT_HOLDERS_FINAL" , [版权所有者] )
+AC_SUBST ( CLIENT_VERSION_MAJOR , _CLIENT_VERSION_MAJOR )
+AC_SUBST ( CLIENT_VERSION_MINOR , _CLIENT_VERSION_MINOR )
+AC_SUBST ( CLIENT_VERSION_REVISION , _CLIENT_VERSION_REVISION )
+AC_SUBST ( CLIENT_VERSION_BUILD , _CLIENT_VERSION_BUILD )
+AC_SUBST ( CLIENT_VERSION_IS_RELEASE , _CLIENT_VERSION_IS_RELEASE )
+AC_SUBST （COPYRIGHT_YEAR，_COPYRIGHT_YEAR ）
+AC_SUBST （COPYRIGHT_HOLDERS，“_COPYRIGHT_HOLDERS” ）
+AC_SUBST （COPYRIGHT_HOLDERS_SUBSTITUTION，“_COPYRIGHT_HOLDERS_SUBSTITUTION” ）
+AC_SUBST （COPYRIGHT_HOLDERS_FINAL，“_COPYRIGHT_HOLDERS_FINAL” ）
+AC_SUBST ( BITCOIN_DAEMON_NAME )
+AC_SUBST ( BITCOIN_GUI_NAME )
+AC_SUBST ( BITCOIN_CLI_NAME )
+AC_SUBST ( BITCOIN_TX_NAME )
+
+AC_SUBST ( RELDFLAGS )
+AC_SUBST ( HARDENED_CXXFLAGS )
+AC_SUBST ( HARDENED_CPPFLAGS )
+AC_SUBST ( HARDENED_LDFLAGS )
+AC_SUBST ( PIC_FLAGS )
+AC_SUBST ( PIE_FLAGS )
+AC_SUBST ( LIBTOOL_APP_LDFLAGS )
+AC_SUBST ( USE_UPNP )
+AC_SUBST ( USE_QRCODE )
+AC_SUBST ( BOOST_LIBS )
+AC_SUBST ( TESTDEFS )
+AC_SUBST ( LEVELDB_TARGET_FLAGS )
+AC_SUBST ( MINIUPNPC_CPPFLAGS )
+AC_SUBST ( MINIUPNPC_LIBS )
+AC_SUBST (加密库)
+AC_SUBST ( SSL_LIBS )
+AC_SUBST ( EVENT_LIBS )
+AC_SUBST ( EVENT_PTHREADS_LIBS )
+AC_SUBST ( ZMQ_LIBS )
+AC_SUBST ( PROTOBUF_LIBS )
+AC_SUBST ( QR_LIBS )
+AC_CONFIG_FILES ( [ Makefile src/Makefile share/setup.nsi share/qt/Info.plist src/test/buildenv.py ] )
+AC_CONFIG_FILES ( [ qa/pull-tester/run-bitcoind-for-test.sh ] , [ chmod +x qa/pull-tester/run-bitcoind-for-test.sh ] )
+AC_CONFIG_FILES ( [ qa/pull-tester/tests_config.py ] , [ chmod +x qa/pull-tester/tests_config.py ] )
+AC_CONFIG_FILES ( [ contrib/devtools/split-debug.sh ] , [ chmod +x contrib/devtools/split-debug.sh ] )
+AC_CONFIG_LINKS ( [ qa/pull-tester/rpc-tests.py:qa/pull-tester/rpc-tests.py ] )
