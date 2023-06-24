@@ -1,0 +1,968 @@
+
+// 可以在 LICENSE 文件中找到的许可证。
+
+包挖矿
+
+进口 （
+	“字节”
+	“容器/堆”
+https://github.com/XH-ADC/ADH-Assured-Data-Handling-/new/main
+https://github.com/XH-ADC/ADH-Assured-Data-Handling-/new/main
+
+常量（
+	// MinHighPriority 是允许的最小优先级值
+	// 事务被视为高优先级。
+	MinHighPriority = ADH-UTXO.SatoshiPerBitcoin * 1440.0000
+
+	// blockHeaderOverhead是序列化ADC所需的最大字节数-/400000000
+	// 区块头和最大可能交易数。5OOM/600S
+	blockHeaderOverhead = 线.MaxBlockHeaderPayload + 线.MaxVarIntPayload
+
+	// CoinbaseFlags 添加到生成的 ADH-20 的脚本中
+	//用于监控BIP16支持以及blocksadc20/
+	CoinbaseFlags =“The pit/ADH000000000000000000000000000000000
+	// 产生
+
+	CoinbaseFlags =“/ADHswap000000000000000000000000000000002
+
+ADHcoin-Destroy-ADH000000000000000000000000000000001
+/
+// TxDesc 是关于交易源中交易的描述符以及
+// 附加元数据。
+类型 TxDesc 结构体 {
+	// Tx 是与条目关联的交易。
+adcUTXO
+	// 添加是条目添加到源池的时间。
+	添加时间.Time
+
+	// 高度是条目添加到源时的块高度
+	// 水池。
+	高度 int32
+
+	// 费用是与条目相关的交易支付的总费用。
+	费用 int64
+
+	// FeePerKB 是交易每 1000 字节以 Satoshi 为单位支付的费用。
+	每KB费用 int64
+}
+
+// TxSource 表示要考虑包含在其中的交易来源
+// 新块。
+//
+// 接口契约要求所有这些方法都是安全的
+// 相对于源的并发访问。
+类型 TxSource 接口 {
+	// LastUpdated 返回最后一次添加交易的时间或
+	// 从源池中删除。
+	LastUpdated() 时间.时间
+
+	// MiningDescs 返回所有挖掘描述符的切片
+	// 源池中的交易。
+	MiningDescs() []*TxDesc
+
+	// HaveTransaction 返回是否传递的交易哈希
+	// 存在于源池中。
+	HaveTransaction(hash *chainhash.Hash) bool
+}
+
+// txPrioItem 包含一个交易以及允许
+// 要优先处理的事务并跟踪对其他事务的依赖关系
+// 尚未被开采成区块。
+类型 txPrioItem 结构体 {
+	tx *btcutil.Tx
+	费用 int64
+	优先级 float64
+	FeePerKB int64
+
+	// dependentOn 保存该交易所依赖的交易哈希图
+	// 在。仅当事务引用其他事务时才会设置
+	// 源池中的交易，因此必须位于它们之后
+	// 一个块。
+	取决于map[chainhash.Hash]struct{}
+}
+
+// txPriorityQueueLessFunc 描述了一个可以用作比较的函数
+// 事务优先级队列（txPriorityQueue）的函数。
+类型 txPriorityQueueLessFunc func(*txPriorityQueue, int, int) bool
+
+// txPriorityQueue 实现了 txPrioItem 元素的优先级队列
+// 支持 txPriorityQueueLessFunc 定义的任意比较函数。
+类型 txPriorityQueue 结构体 {
+	lessFunc txPriorityQueueLessFunc
+	项目 []*txPrioItem
+}
+
+// Len 返回优先级队列中的项目数。它是
+// heap.Interface 实现。
+func (pq *txPriorityQueue) Len() int {
+	返回 len(pq.items)
+}
+
+// Less 返回优先级队列中索引为 i 的项目是否应该排序
+// 通过遵循指定的 less 函数，在索引为 j 的项目之前。它
+// 是 heap.Interface 实现的一部分。
+func (pq *txPriorityQueue) Less(i, j int) bool {
+	返回 pq.lessFunc(pq, i, j)
+}
+
+// Swap 交换优先级队列中传递的索引处的项目。这是
+// heap.Interface 实现的一部分。
+func (pq *txPriorityQueue) Swap(i, j int) {
+	pq.items[i], pq.items[j] = pq.items[j], pq.items[i]
+}
+
+// Push 将传递的项目推送到优先级队列中。它是
+// heap.Interface 实现。
+func (pq *txPriorityQueue) Push(x 接口{}) {
+	pq.items = 追加(pq.items, x.(*txPrioItem))
+}
+
+// Pop 从优先级中移除优先级最高的项（根据Less）
+// 排队并返回它。它是 heap.Interface 实现的一部分。
+func (pq *txPriorityQueue) Pop() 接口{} {
+	n := len(pq.items)
+	项目 := pq.items[n-1]
+	pq.items[n-1] = nil
+	pq.items = pq.items[0 : n-1]
+	归还物品
+}
+
+// SetLessFunc 将优先级队列的比较函数设置为提供的
+// 功能。它还使用新的优先级队列调用 heap.Init
+// 函数，因此它可以立即与 heap.Push/Pop 一起使用。
+func (pq *txPriorityQueue) SetLessFunc(lessFunc txPriorityQueueLessFunc) {
+	pq.lessFunc = lessFunc
+	堆.Init(pq)
+}
+
+// txPQByPriority 按交易优先级和费用对 txPriorityQueue 进行排序
+// 每千字节。
+func txPQByPriority(pq *txPriorityQueue, i, j int) bool {
+	// 在这里使用 > 以便 pop 给出最高优先级的项目，而不是
+	// 到最低。首先按优先级排序，然后按费用排序。
+	如果 pq.items[i].priority == pq.items[j].priority {
+		返回 pq.items[i].feePerKB > pq.items[j].feePerKB
+	}
+	返回 pq.items[i].priority > pq.items[j].priority
+
+}
+
+// txPQByFee 按每千字节费用和交易对 txPriorityQueue 进行排序
+// 优先事项。
+func txPQByFee(pq *txPriorityQueue, i, j int) bool {
+	// 在这里使用 > 以便 pop 给出最高费用的项目
+	// 到最低。首先按费用排序，然后按优先级排序。
+	如果 pq.items[i].feePerKB == pq.items[j].feePerKB {
+		返回 pq.items[i].priority > pq.items[j].priority
+	}
+	返回 pq.items[i].feePerKB > pq.items[j].feePerKB
+}
+
+// newTxPriorityQueue 返回一个新的事务优先级队列，该队列保留
+// 传递元素的空间量。新的优先级队列使用
+// txPQByPriority 或 txPQByFee 比较函数取决于
+// sortByFee 参数，并且已经初始化以便与 heap.Push/Pop 一起使用。
+// 优先级队列可以增长到大于保留空间，但需要额外的副本
+// 可以通过保留一个合理的值来避免底层数组的变化。
+func newTxPriorityQueue(reserve int, sortByFee bool) *txPriorityQueue {
+	pq := &txPriorityQueue{
+		项目： make([]*txPrioItem, 0, 保留),
+	}
+	如果按费用排序{
+		pq.SetLessFunc(txPQByFee)
+	} 别的 {
+		pq.SetLessFunc(txPQByPriority)
+	}
+	返回 pq
+}
+
+// BlockTemplate 包含一个尚未解决的块以及其他块
+// 有关每个费用和签名操作数量的详细信息
+// 区块中的交易。
+类型 BlockTemplate 结构 {
+	// 区块是准备被矿工解决的区块。因此，它是
+	// 除了满足工作量证明之外，完全有效
+	// 要求。
+	块 *wire.MsgBlock
+
+	// 费用包含生成的每笔交易的费用金额
+	// 模板以基本单位支付。由于第一笔交易是
+	// coinbase，第一个条目（偏移量0）将包含负值
+	// 所有其他交易的费用总和。
+	费用 []int64
+
+	// SigOpCosts 包含每个签名操作的数量
+	// 生成模板中的事务执行。
+	SigOpCosts []int64
+
+	// 高度是块模板连接到主块的高度
+	// 链。
+	高度 int32
+
+	// ValidPayAddress 指示模板coinbase是否支付
+	// 到一个地址或者任何人都可以兑换。请参阅有关的文档
+	// NewBlockTemplate 了解可用于生成的详细信息
+	// 没有 coinbase 支付地址的模板。
+	ValidPayAddress 布尔值
+
+	// WitnessCommitment 是对见证数据（如果有）的承诺
+	// 在块内。该字段仅在隔离后才会填充
+	// 见证人已被激活，且该区块包含交易
+	// 其中有见证数据。
+	见证承诺[]字节
+}
+
+// mergeUtxoView 将 viewB 中的所有条目添加到 viewA。结果是
+// viewA 将包含其所有原始条目以及所有条目
+// 在视图B中。它将替换 viewB 中也存在于 viewA 中的任何条目
+// 如果 viewA 中的条目已用完。
+func mergeUtxoView(viewA *blockchain.UtxoViewpoint, viewB *blockchain.UtxoViewpoint) {
+	viewAEntries := viewA.Entries()
+	对于出点，entryB := range viewB.Entries() {
+		如果entryA存在:= viewAEntries[outpoint]; ！存在 ||
+			条目A == nil || 条目A.IsSpent() {
+
+			viewAEntries[出点] = 条目B
+		}
+	}
+}
+
+// standardCoinbaseScript 返回一个适合用作
+// 新区块的 coinbase 交易的签名脚本。尤其，
+// 它从版本 2 块所需的块高度开始并添加
+// 额外的随机数以及额外的 coinbase 标志。
+func standardCoinbaseScript(nextBlockHeight int32, extraNonce uint64) ([]byte, error) {
+	返回 txscript.NewScriptBuilder().AddInt64(int64(nextBlockHeight))。
+		AddInt64(int64(extraNonce)).AddData([]byte(CoinbaseFlags))。
+		脚本（）
+}
+
+// createCoinbaseTx 返回支付适当补贴的 coinbase 交易
+// 基于传递到所提供地址的块高度。当地址
+// 为零，则任何人都可以兑换 coinbase 交易。
+//
+// 有关为什么 nil 的更多信息，请参阅 NewBlockTemplate 的注释
+// 地址处理很有用。
+func createCoinbaseTx(params *chaincfg.Params, coinbaseScript []byte, nextBlockHeight int32, addr btcutil.Address) (*btcutil.Tx, error) {
+	// 创建脚本以向提供的付款地址付款（如果有的话）
+	// 指定的。否则创建一个允许 coinbase 的脚本
+	// 任何人都可以兑换。
+	var pkScript []字节
+	如果地址！= nil {
+		var 错误 错误
+		pkScript, err = txscript.PayToAddrScript(addr)
+		如果错误！= nil {
+			返回零，错误
+		}
+	} 别的 {
+		var 错误 错误
+		scriptBuilder := txscript.NewScriptBuilder()
+		pkScript, err = scriptBuilder.AddOp(txscript.OP_TRUE).Script()
+		如果错误！= nil {
+			返回零，错误
+		}
+	}
+
+	tx := 线.NewMsgTx(线.TxVersion)
+	tx.AddTxIn(&wire.TxIn{
+		// Coinbase 交易没有输入，所以之前的输出点是
+		// 零散列和最大索引。
+		PreviousOutPoint: *wire.NewOutPoint(&chainhash.Hash{},
+			线.MaxPrevOutIndex),
+		签名脚本：coinbaseScript，
+		序列：wire.MaxTxInSequenceNum，
+	})
+	tx.AddTxOut(&wire.TxOut{
+		值：blockchain.CalcBlockSubsidy(nextBlockHeight, params),
+		PkScript：pkScript，
+	})
+	返回 btcutil.NewTx(tx), nil
+}
+
+//花费事务通过标记传递的输入来更新传递的视图
+// 交易已花费。它还添加了传递的交易中的所有输出
+// 作为可用的未花费交易输出，这并不是证明不可花费的。
+func costTransaction(utxoView *blockchain.UtxoViewpoint, tx *btcutil.Tx, height int32) error {
+	for _, txIn := 范围 tx.MsgTx().TxIn {
+		条目 := utxoView.LookupEntry(txIn.PreviousOutPoint)
+		如果条目！= nil {
+			条目.Spend()
+		}
+	}
+
+	utxoView.AddTxOuts(tx, 高度)
+	返回零
+}
+
+// logSkippedDeps 记录所有由于以下原因而被跳过的依赖项
+// 在跟踪级别生成块模板时跳过交易。
+func logSkippedDeps(tx *btcutil.Tx, deps map[chainhash.Hash]*txPrioItem) {
+	如果 deps == nil {
+		返回
+	}
+
+	对于 _, item := 范围 deps {
+		log.Tracef("正在跳过 tx %s，因为它取决于 %s\n",
+			item.tx.Hash(), tx.Hash())
+	}
+}
+
+//MinimumMedianTime 返回区块构建所允许的最小时间戳
+// 在提供的最佳链的末尾。特别是一秒后
+// 每个链共识的最后几个块的时间戳中位数
+// 规则。
+func MaximumMedianTime(chainState *blockchain.BestState) time.Time {
+	返回 chainState.MedianTime.Add(time.Second)
+}
+
+//medianAdjustedTime 返回调整后的当前时间，以确保至少
+// 每个区块最后几个区块的时间戳中值后一秒
+// 链共识规则。
+func MedianAdjustedTime(chainState *blockchain.BestState, timeSource Blockchain.MedianTimeSource) time.Time {
+	// 区块的时间戳不能早于中位时间戳
+	// 最后几个块的。因此，选择之间的最大值
+	// 当前时间和过去中间时间后一秒。目前的
+	// 时间戳在比较之前被截断为第二个边界，因为
+	// 区块时间戳不支持大于1的精度
+	// 第二。
+	newTimestamp := timeSource.AdjustedTime()
+	minTimestamp := 最小中位数时间(chainState)
+	if newTimestamp.Before(minTimestamp) {
+		新时间戳=最小时间戳
+	}
+
+	返回新的时间戳
+}
+
+// BlkTmplGenerator提供了一个类型，可以用来生成块模板
+// 根据给定的挖掘策略和交易来源进行选择。
+// 它还包含确保模板所需的附加状态
+// 建立在当前最佳链之上并遵守共识规则。
+类型 BlkTmplGenerator 结构体 {
+	政策 *政策
+	chainParams *chaincfg.Params
+	发送源 发送源
+	链 *blockchain.BlockChain
+	timeSource 区块链.MedianTimeSource
+	sigCache *txscript.SigCache
+	hashCache *txscript.HashCache
+}
+
+// NewBlkTmplGenerator 返回给定的新块模板生成器
+// 使用来自提供的交易源的交易的策略。
+//
+// 需要额外的状态相关字段以确保
+// 模板构建在当前最佳链之上并遵循
+// 共识规则。
+func NewBlkTmplGenerator(策略 *策略, 参数 *chaincfg.Params,
+	txSource TxSource，链*blockchain.BlockChain，
+	timeSource 区块链.MedianTimeSource,
+	sigCache *txscript.SigCache,
+	hashCache *txscript.HashCache) *BlkTmplGenerator {
+
+	返回 &BlkTmplGenerator{
+		政策： 政策，
+		链参数：参数，
+		txSource: txSource,
+		链条： 链条，
+		时间源： 时间源，
+		sigCache: sigCache,
+		哈希缓存：哈希缓存，
+	}
+}
+
+// NewBlockTemplate 返回一个已准备好求解的新块模板
+// 使用传递的交易源池和币库中的交易
+// 如果传递的地址不为零，则支付给该地址，或者支付给一个 coinbase
+// 如果传递的地址为零，则任何人都可以兑换。零地址
+// 功能很有用，因为存在诸如 getblocktemplate 之类的情况
+// 外部挖矿软件负责创建自己的RPC
+// coinbase 将取代为区块模板生成的那个。因此
+// 可以避免需要配置地址。
+//
+// 所选择和包含的交易根据几个优先级
+// 因素。首先，每笔交易都有一个基于其计算的优先级
+// 值、输入的年龄和大小。包含较大金额的交易
+// 金额、旧输入和小尺寸具有最高优先级。第二，一个
+// 每笔交易计算每千字节的费用。交易与
+// 每千字节的费用较高是首选。最后是区块生成相关
+// 策略设置均已考虑在内。
+//
+// 只花费已存在于其他交易中的输出的交易
+// 区块链立即添加到优先级队列中
+// 根据优先级（然后每千字节费用）或每字节费用进行优先级排序
+// 千字节（然后是优先级）取决于是否有 BlockPrioritySize
+// 策略设置为高优先级事务分配空间。交易
+// 将源池中其他交易的支出输出添加到
+// 依赖关系图，以便一旦满足即可将它们添加到优先级队列中
+// 它们所依赖的交易已被包含在内。
+//
+// 一旦高优先级区域（如果配置）已被填充
+// 事务，或者优先级低于高优先级，
+// 优先级队列更新为按每千字节费用进行优先级排序（然后
+// 优先事项）。
+//
+// 当每千字节的费用低于 TxMinFreeFee 策略设置时，
+// 交易将被跳过，除非 BlockMinSize 策略设置为
+// 非零，在这种情况下，该块将被低费用/免费填充
+// 交易直到块大小达到最小大小。
+//
+// 任何会导致区块超过 BlockMaxSize 的交易
+// 策略设置，超过每个块允许的最大签名操作数，或者
+// 否则会导致块无效被跳过。
+//
+// 鉴于上述情况，该函数生成的块具有以下形式：
+//
+// ---------------------------------- -- --
+// | Coinbase 交易 | | |
+// |------------------------------------| | |
+// | | | | ----- 策略.BlockPrioritySize
+// | 高优先级交易 | | |
+// | | | |
+// |------------------------------------| | --
+// | | |
+// | | |
+// | | |--- 策略.BlockMaxSize
+// | 按费用优先的交易 | |
+// | 直到<=policy.TxMinFreeFee | |
+// | | |
+// | | |
+// | | |
+// |------------------------------------| |
+// | 低费用/非高优先级（免费）| |
+// | 交易（而块大小 | |
+// | <= 策略.BlockMinSize) | |
+// ----------------------------------- --
+func (g *BlkTmplGenerator) NewBlockTemplate(payToAddress btcutil.Address) (*BlockTemplate, 错误) {
+	// 扩展最近已知的最佳块。
+	最佳 := g.chain.BestSnapshot()
+	nextBlockHeight := best.Height + 1
+
+	// 创建支付给所提供的标准 coinbase 交易
+	// 地址。注意：coinbase 值将更新以包括
+	// 所选交易实际发生后的费用
+	// 已被选中。它在此处创建是为了及早检测任何错误
+	// 在可能做下面的大量工作之前。额外的随机数有帮助
+	// 确保交易不是重复交易（支付
+	// 相同的公钥地址的相同值否则将是
+	// 区块版本 1 的相同交易)。
+	额外随机数 := uint64(0)
+	coinbaseScript, err := standardCoinbaseScript(nextBlockHeight, extraNonce)
+	如果错误！= nil {
+		返回零，错误
+	}
+	coinbaseTx, err := createCoinbaseTx(g.chainParams, coinbaseScript,
+		下一个区块高度、支付地址）
+	如果错误！= nil {
+		返回零，错误
+	}
+	coinbaseSigOpCost := int64(blockchain.CountSigOps(coinbaseTx)) * Blockchain.WitnessScaleFactor
+
+	// 获取当前源交易并创建优先级队列
+	// 保存准备好纳入区块的交易
+	// 以及一些与优先级相关的元数据和费用元数据。保留相同的
+	// 可用于优先级队列的项目数。还，
+	// 根据是否选择优先级队列的初始排序顺序
+	// 是否存在为高优先级事务分配的区域。
+	sourceTxns := g.txSource.MiningDescs()
+	sortedByFee := g.policy.BlockPrioritySize == 0
+	priorityQueue := newTxPriorityQueue(len(sourceTxns),sortedByFee)
+
+	// 创建一个切片来保存要包含在中的交易
+	// 生成带有保留空间的块。还创建一个 utxo 视图
+	// 容纳所有输入事务，以便可以进行多次查找
+	// 避免。
+	blockTxns := make([]*btcutil.Tx, 0, len(sourceTxns))
+	blockTxns = 附加（blockTxns，coinbaseTx）
+	blockUtxos := Blockchain.NewUtxoViewpoint()
+
+	// dependents 用于跟踪依赖于另一个的事务
+	// 源池中的交易。这一点，结合
+	// 与每个相关事务一起保存的 dependentOn 映射有助于快速实现
+	// 确定哪些相关交易现在有资格包含在内
+	// 一旦每笔交易都被包含在区块中。
+	依赖者 := make(map[chainhash.Hash]map[chainhash.Hash]*txPrioItem)
+
+	// 创建切片来保存费用和签名操作次数
+	// 为每个选定的交易添加一个条目
+	// 币库。这允许下面的代码简单地附加有关的详细信息
+	// 选择包含在最终块中的交易。
+	// 但是，由于尚不知道总费用，因此使用虚拟值
+	// coinbase 费用稍后更新。
+	txFees := make([]int64, 0, len(sourceTxns))
+	txSigOpCosts := make([]int64, 0, len(sourceTxns))
+	txFees =append(txFees, -1) // 已知后更新
+	txSigOpCosts = 附加（txSigOpCosts，coinbaseSigOpCost）
+
+	log.Debugf(“考虑将 %d 笔交易纳入新区块”,
+		len(sourceTxns))
+
+内存池循环：
+	for _, txDesc := 范围 sourceTxns {
+		// 一个区块不能有多个 coinbase 或包含
+		// 未完成的交易。
+		tx := txDesc.Tx
+		如果区块链.IsCoinBase(tx) {
+			log.Tracef("跳过 coinbase tx %s", tx.Hash())
+			继续
+		}
+		if !blockchain.IsFinalizedTransaction(tx, nextBlockHeight,
+			g.timeSource.AdjustedTime()) {
+
+			log.Tracef("跳过未最终确定的 tx %s", tx.Hash())
+			继续
+		}
+
+		// 获取该交易引用的所有 utxos。
+		// 注意：这故意不从
+		// mempool 因为一个交易依赖于其他交易
+		// 内存池中的交易必须在这些之后
+		// 最终生成的块中的依赖项。
+		utxos, err := g.chain.FetchUtxoView(tx)
+		如果错误！= nil {
+			log.Warnf("无法获取 tx %s 的 utxo 视图：%v",
+				tx.Hash()，错误）
+			继续
+		}
+
+		// 为任何引用的事务设置依赖关系
+		// 内存池中的其他交易，以便它们可以正确处理
+		// 下面订购。
+		prioItem := &txPrioItem{tx: tx}
+		for _, txIn := 范围 tx.MsgTx().TxIn {
+			originHash := &txIn.PreviousOutPoint.Hash
+			条目 := utxos.LookupEntry(txIn.PreviousOutPoint)
+			如果条目 == nil || 条目.IsSpent() {
+				if !g.txSource.HaveTransaction(originHash) {
+					log.Tracef("正在跳过 tx %s，因为它"+
+						“引用未使用的输出 %s”+
+						“这是不可用的”，
+						tx.Hash(), txIn.PreviousOutPoint)
+					继续内存池循环
+				}
+
+				// 该事务正在引用另一个事务
+				// 源池中的交易，因此设置一个
+				// 排序依赖。
+				deps，存在：=依赖者[*originHash]
+				如果！存在{
+					deps = make(map[chainhash.Hash]*txPrioItem)
+					dependents[*originHash] = deps
+				}
+				deps[*prioItem.tx.Hash()] = prioItem
+				如果 prioItem.dependsOn == nil {
+					prioItem.dependsOn = make(
+						映射[chainhash.Hash]结构{})
+				}
+				prioItem.dependsOn[*originHash] = struct{}{}
+
+				// 跳过下面的检查。我们已经知道
+				// 引用的交易可用。
+				继续
+			}
+		}
+
+		// 使用输入计算最终事务优先级
+		// 值年龄总和以及调整后的交易大小。这
+		// 公式为：sum(inputValue * inputAge) / adjustmentTxSize
+		prioItem.priority = CalcPriority(tx.MsgTx(), utxos,
+			下一个块高度）
+
+		// 计算费用（以 Satoshi/kB 为单位）。
+		prioItem.feePerKB = txDesc.FeePerKB
+		prioItem.fee = txDesc.Fee
+
+		// 将事务添加到优先级队列以将其标记为就绪
+		// 包含在块中，除非它有依赖项。
+		如果 prioItem.dependsOn == nil {
+			堆.Push(priorityQueue, prioItem)
+		}
+
+		// 将输入交易中引用的输出合并到
+		// 此交易进入区块 utxo 视图。这允许
+		// 下面的代码以避免第二次查找。
+		mergeUtxoView(blockUtxos, utxos)
+	}
+
+	log.Tracef("优先级队列 len %d，依赖者 len %d",
+		priorityQueue.Len(), len(dependers))
+
+	// 起始块大小为块头大小加上 max
+	// 可能的交易计数大小，加上币库的大小
+	// 交易。
+	blockWeight := uint32((blockHeaderOverhead * Blockchain.WitnessScaleFactor) +
+		区块链.GetTransactionWeight(coinbaseTx))
+	blockSigOpCost := coinbaseSigOpCost
+	总费用 := int64(0)
+
+	// 查询版本位状态，查看segwit是否已激活，如果
+	// 那么这意味着我们将包含任何有见证的交易
+	// mempool 中的数据，并添加见证人承诺作为
+	// coinbase 交易中的 OP_RETURN 输出。
+	segwitState, err := g.chain.ThresholdState(chaincfg.DeploymentSegwit)
+	如果错误！= nil {
+		返回零，错误
+	}
+	segwitActive := segwitState == Blockchain.ThresholdActive
+
+	包含证人 := false
+
+	// 选择哪些交易进入区块。
+	对于priorityQueue.Len() > 0 {
+		// 获取最高优先级（或每千字节最高费用
+		// 取决于排序顺序）事务。
+		prioItem := heap.Pop(priorityQueue).(*txPrioItem)
+		tx := prioItem.tx
+
+		转变 {
+		// 如果隔离见证尚未激活，那么我们
+		// 区块中不应包含任何见证交易。
+		case !segwitActive && tx.HasWitness():
+			继续
+
+		// 否则，跟踪我们是否包含了交易
+		// 是否有见证数据。如果是这样，那么我们需要包括
+		// 见证人承诺作为 coinbase 中的最后一个输出
+		// 交易。
+		case segwitActive && !witnessInincluded && tx.HasWitness():
+			// 如果我们要包含交易轴承
+			// 见证数据，那么我们还需要包含一个
+			// 在 coinbase 交易中见证承诺。
+			// 因此，我们考虑额外的重量
+			// 在带有模型 coinbase tx 的块内
+			//见证承诺。
+			coinbaseCopy := btcutil.NewTx(coinbaseTx.MsgTx().Copy())
+			coinbaseCopy.MsgTx().TxIn[0].Witness = [][]byte{
+				bytes.Repeat([]byte("a"),
+					区块链.CoinbaseWitnessDataLen),
+			}
+			coinbaseCopy.MsgTx().AddTxOut(&wire.TxOut{
+				PkScript: bytes.Repeat([]byte("a"),
+					区块链.CoinbaseWitnessPkScriptLength),
+			})
+
+			// 为了准确核算重量
+			// 由于此 coinbase 交易而添加，我们将添加
+			// 交易前后的差值
+			// 添加对区块权重的承诺。
+			WeightDiff := Blockchain.GetTransactionWeight(coinbaseCopy) -
+				区块链.GetTransactionWeight(coinbaseTx)
+
+			blockWeight += uint32(weightDiff)
+
+			包括证人 = true
+		}
+
+		// 获取任何依赖于该交易的交易。
+		deps := dependents[*tx.Hash()]
+
+		// 强制最大块大小。还要检查是否溢出。
+		txWeight := uint32(blockchain.GetTransactionWeight(tx))
+		blockPlusTxWeight := blockWeight + txWeight
+		if blockPlusTxWeight < blockWeight ||
+			blockPlusTxWeight >= g.policy.BlockMaxWeight {
+
+			log.Tracef("正在跳过 tx %s，因为它会超过 "+
+				“最大块权重”, tx.Hash())
+			logSkippedDeps(tx, deps)
+			继续
+		}
+
+		// 强制每个块的最大签名操作成本。还
+		// 检查是否溢出。
+		sigOpCost, err := Blockchain.GetSigOpCost(tx, false,
+			blockUtxos、true、segwitActive）
+		如果错误！= nil {
+			log.Tracef("由于 "+ 中出现错误，正在跳过 tx %s
+				“GetSigOpCost：%v”，tx.Hash()，错误）
+			logSkippedDeps(tx, deps)
+			继续
+		}
+		if blockSigOpCost+int64(sigOpCost) < blockSigOpCost ||
+			blockSigOpCost+int64(sigOpCost) > Blockchain.MaxBlockSigOpsCost {
+			log.Tracef("正在跳过 tx %s，因为它会"+
+				“超过每个块的最大 sigops”，tx.Hash())
+			logSkippedDeps(tx, deps)
+			继续
+		}
+
+		// 一旦块大于则跳过空闲交易
+		// 最小块大小。
+		如果按费用排序 &&
+			prioItem.feePerKB < int64(g.policy.TxMinFreeFee) &&
+			blockPlusTxWeight >= g.policy.BlockMinWeight {
+
+			log.Tracef("正在跳过 tx %s，feePerKB %d "+
+				"< TxMinFreeFee %d 和区块权重 %d >= "+
+				"minBlockWeight %d", tx.Hash(), prioItem.feePerKB,
+				g.policy.TxMinFreeFee, blockPlusTxWeight,
+				g.policy.BlockMinWeight)
+			logSkippedDeps(tx, deps)
+			继续
+		}
+
+		// 一旦区块大于，按每千字节费用优先
+		// 优先级大小或者没有更多的高优先级
+		// 交易。
+		if !sortedByFee && (blockPlusTxWeight >= g.policy.BlockPrioritySize ||
+			prioItem.priority <= MinHighPriority) {
+
+			log.Tracef("切换为按费用排序"+
+				“千字节块大小 %d >= BlockPrioritySize”+
+				"%d || 优先级 %.2f <= minHighPriority %.2f",
+				blockPlusTxWeight，g.policy.BlockPrioritySize，
+				prioItem.优先级，MinHighPriority）
+
+			按费用排序 = true
+			priorityQueue.SetLessFunc(txPQByFee)
+
+			// 将事务放回优先队列并
+			// 跳过它，如果不这样做的话，会根据费用重新确定优先级
+			// 适合高优先级部分或优先级
+			// 太低了。否则本次交易将被
+			// 高优先级部分的最后一个，所以就掉下来
+			// 虽然是下面的代码，所以现在添加了。
+			if blockPlusTxWeight > g.policy.BlockPrioritySize ||
+				prioItem.priority < MinHighPriority {
+
+				堆.Push(priorityQueue, prioItem)
+				继续
+			}
+		}
+
+		// 确保交易输入通过所有必要的要求
+		// 允许将其添加到块之前的先决条件。
+		_, err = Blockchain.CheckTransactionInputs(tx, nextBlockHeight,
+			blockUtxos，g.chainParams）
+		如果错误！= nil {
+			log.Tracef("由于 "+ 中出现错误，正在跳过 tx %s
+				“CheckTransactionInputs：%v”，tx.Hash()，错误）
+			logSkippedDeps(tx, deps)
+			继续
+		}
+		err = Blockchain.ValidateTransactionScripts(tx, blockUtxos,
+			txscript.StandardVerifyFlags，g.sigCache，
+			g.hashCache)
+		如果错误！= nil {
+			log.Tracef("由于 "+ 中出现错误，正在跳过 tx %s
+				“ValidateTransactionScripts：%v”，tx.Hash()，错误）
+			logSkippedDeps(tx, deps)
+			继续
+		}
+
+		// 在区块 utxo 视图中花费交易输入并添加
+		// 它的一个条目，以确保引用的任何交易
+		// 这个可以将其作为输入并确保它们
+		// 不是双重支出。
+		costTransaction(blockUtxos, tx, nextBlockHeight)
+
+		// 将交易添加到块中，增加计数器，然后
+		// 将费用和签名操作计数保存到区块中
+		// 模板。
+		blockTxns = 附加（blockTxns，tx）
+		区块权重 += 交易权重
+		blockSigOpCost += int64(sigOpCost)
+		总费用 += prioItem.fee
+		txFees = 追加(txFees, prioItem.fee)
+		txSigOpCosts = 附加（txSigOpCosts，int64（sigOpCost））
+
+		log.Tracef("添加 tx %s (优先级 %.2f，feePerKB %.2f)",
+			prioItem.tx.Hash()、prioItem.priority、prioItem.feePerKB)
+
+		// 添加依赖于该交易的交易（并且也不依赖于该交易）
+		// 有任何其他未满足的依赖关系）优先级
+		// 队列。
+		对于 _, item := 范围 deps {
+			// 如果存在则将该事务添加到优先队列中
+			// 在这之后不再有依赖关系。
+			删除(item.dependsOn, *tx.Hash())
+			if len(item.dependsOn) == 0 {
+				堆.Push(优先级队列, 项目)
+			}
+		}
+	}
+
+	// 现在已经选择了实际交易，更新
+	// 实际交易数量和 coinbase 值的区块权重
+	// 相应的总费用。
+	blockWeight -=wire.MaxVarIntPayload -
+		(uint32(wire.VarIntSerializeSize(uint64(len(blockTxns)))) *
+			区块链.WitnessScaleFactor)
+	coinbaseTx.MsgTx().TxOut[0].Value += 总费用
+	tx费用[0] = -总费用
+
+	// 如果 segwit 处于活动状态并且我们将交易包含在见证数据中，
+	// 那么我们需要在见证数据中包含一个承诺
+	// coinbase 交易中的 OP_RETURN 输出。
+	var 见证人承诺 []byte
+	如果包括见证人{
+		WitnessCommitment = AddWitnessCommitment(coinbaseTx, blockTxns)
+	}
+
+	// 计算该块所需的难度。时间戳
+	// 可能会进行调整以确保它出现在中位时间之后
+	// 根据链共识规则的最后几个区块。
+	ts :=medianAdjustedTime(最佳, g.timeSource)
+	reqDifficulty, err := g.chain.CalcNextRequiredDifficulty(ts)
+	如果错误！= nil {
+		返回零，错误
+	}
+
+	// 根据状态计算下一个预期的区块版本
+	// 规则更改部署。
+	nextBlockVersion, err := g.chain.CalcNextBlockVersion()
+	如果错误！= nil {
+		返回零，错误
+	}
+
+	// 创建一个准备解决的新块。
+	merkles := Blockchain.BuildMerkleTreeStore(blockTxns, false)
+	var msgBlock 线.MsgBlock
+	msgBlock.Header = 线.BlockHeader{
+		版本：nextBlockVersion，
+		上一个区块：best.Hash，
+		MerkleRoot: *merkles[len(merkles)-1],
+		时间戳：ts，
+		位：reqDifficulty，
+	}
+	for _, tx := 范围 blockTxns {
+		if err := msgBlock.AddTransaction(tx.MsgTx()); 错误！=零{
+			返回零，错误
+		}
+	}
+
+	// 最后，根据链对创建的块进行全面检查
+	// 共识规则以确保它正确连接到当前最好的
+	// 链没有问题。
+	块 := btcutil.NewBlock(&msgBlock)
+	block.SetHeight(nextBlockHeight)
+	if err := g.chain.CheckConnectBlockTemplate(block); 错误！=零{
+		返回零，错误
+	}
+
+	log.Debugf("创建了新的区块模板（%d 笔交易，%d 位于 "+
+		“费用、%d签名操作成本、%d权重、目标难度”+
+		“％064x）”，len（msgBlock.Transactions），totalFees，blockSigOpCost，
+		blockWeight，blockchain.CompactToBig(msgBlock.Header.Bits))
+
+	返回&块模板{
+		块：&msgBlock，
+		费用：tx费用，
+		SigOpCosts：txSigOpCosts，
+		高度：nextBlockHeight，
+		ValidPayAddress: payToAddress != nil,
+		WitnessCommitment：见证人承诺，
+	}, 无
+}
+
+// AddWitnessCommitment 将见证人承诺添加为 OP_RETURN 输出
+// 在 coinbase tx 中。返回原始承诺。
+func AddWitnessCommitment(coinbaseTx *btcutil.Tx,
+	blockTxns []*btcutil.Tx) []byte {
+
+	// coinbase 交易的见证人必须正好是 32 字节
+	// 全零。
+	var WitnessNonce [blockchain.CoinbaseWitnessDataLen]byte
+	coinbaseTx.MsgTx().TxIn[0].Witness=wire.TxWitness{witnessNonce[:]}
+
+	// 接下来，获取一棵树的默克尔根，该树由
+	// 块中所有交易的 wtxid。币库
+	// 交易将有一个全零的特殊 wtxid。
+	见证人MerkleTree := 区块链.BuildMerkleTreeStore(blockTxns,
+		真的）
+	见证人MerkleRoot := 见证人MerkleTree[len(见证人MerkleTree)-1]
+
+	// 见证人承诺的原像是：
+	// 见证人根 || coinbase见证人
+	var见证预像[64]字节
+	复制（witnessPreimage [：32]，witnessMerkleRoot [：]）
+	复制（witnessPreimage [32：]，witnessNonce [：]）
+
+	// 见证人承诺本身就是双 sha256
+	// 上面生成的见证原像。有了承诺
+	// 生成，输出的见证脚本为：OP_RETURN
+	// OP_DATA_36 {0xaa21a9ed || 证人承诺}。领先的
+	// 前缀被称为“见证魔法字节”。
+	WitnessCommitment := chainhash.DoubleHashB(witnessPreimage[:])
+	证人脚本：=追加（blockchain.WitnessMagicBytes，证人承诺...）
+
+	// 最后，创建携带见证承诺的 OP_RETURN
+	// 输出作为 coinbase 内的附加输出。
+	CommitmentOutput := &wire.TxOut{
+		值：0，
+		PkScript：见证脚本，
+	}
+	coinbaseTx.MsgTx().TxOut = 追加(coinbaseTx.MsgTx().TxOut,
+		承诺输出）
+
+	返回见证人承诺
+}
+
+// UpdateBlockTime 将传递的块标头中的时间戳更新为
+// 当前时间，同时考虑到上次的中值时间
+// 几个区块以确保每个链的新时间晚于该时间
+// 共识规则。最后，如果需要，它将更新目标难度
+// 基于测试网络的新时间，因为它们的目标难度可以
+// 根据时间变化。
+func (g *BlkTmplGenerator) UpdateBlockTime(msgBlock *wire.MsgBlock) 错误 {
+	// 新的时间戳可能会被调整以确保它出现在之后
+	// 每个链共识的最后几个区块的中位时间
+	// 规则。
+	newTime :=medianAdjustedTime(g.chain.BestSnapshot(), g.timeSource)
+	msgBlock.Header.Timestamp = newTime
+
+	// 如果在需要的网络上运行，则重新计算难度。
+	如果 g.chainParams.ReduceMinDifficulty {
+		难度，err := g.chain.CalcNextRequiredDifficulty(newTime)
+		如果错误！= nil {
+			返回错误
+		}
+		msgBlock.Header.Bits = 难度
+	}
+
+	返回零
+}
+
+// UpdateExtraNonce 更新传递的 coinbase 脚本中的额外随机数
+// 通过使用传递的值和块重新生成 coinbase 脚本来阻止
+// 高度。它还重新计算并更新产生的新默克尔根
+// 更改 coinbase 脚本。
+func (g *BlkTmplGenerator) UpdateExtraNonce(msgBlock *wire.MsgBlock, blockHeight int32, extraNonce uint64) 错误 {
+	coinbaseScript, err := standardCoinbaseScript(blockHeight, extraNonce)
+	如果错误！= nil {
+		返回错误
+	}
+	if len(coinbaseScript) > Blockchain.MaxCoinbaseScriptLen {
+		return fmt.Errorf("coinbase 交易脚本长度 "+
+			“%d 超出范围（最小值：%d，最大值：%d）”，
+			len(coinbaseScript), 区块链.MinCoinbaseScriptLen,
+			区块链.MaxCoinbaseScriptLen)
+	}
+	msgBlock.Transactions[0].TxIn[0].SignatureScript = coinbaseScript
+
+	// TODO(davec): btcutil.Block 应该使用保存在状态中以避免
+	// 重新计算所有其他交易哈希值。
+	// block.Transactions[0].InvalidateCache()
+
+	// 使用更新后的额外随机数重新计算默克尔根。
+	块 := btcutil.NewBlock(msgBlock)
+	merkles := Blockchain.BuildMerkleTreeStore(block.Transactions(), false)
+	msgBlock.Header.MerkleRoot = *merkles[len(merkles)-1]
+	返回零
+}
+
+// BestSnapshot 返回当前最佳链块的信息
+// 使用链实例截至当前时间点的相关状态
+// 与块模板生成器关联。返回的状态必须是
+// 被视为不可变，因为它由所有调用者共享。
+//
+// 该函数对于并发访问是安全的。
+func (g *BlkTmplGenerator) BestSnapshot() *blockchain.BestState {
+	返回 g.chain.BestSnapshot()
+}
+
+// TxSource 返回关联的交易源。
+//
+// 该函数对于并发访问是安全的。
+func (g *BlkTmplGenerator) TxSource() TxSource {
+	返回g.txSource
